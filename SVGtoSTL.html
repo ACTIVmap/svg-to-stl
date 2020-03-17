@@ -260,31 +260,39 @@
         return;
       }
 
-      // To render the SVG on-screen
-      var readerURL = new FileReader();
-      // To parse the xml within the SVG file
+      // To parse the xml within the SVG file, render on-screen
+      // and process it
       var readerString = new FileReader();
 
-      readerURL.onload = function (e) {
-          $('#uploadedSVG').attr('src', e.target.result);
-          $('#uploadedSVG').fadeIn();
-      }
+
 
       // Closure to capture the file information.
       readerString.onload = (function(uploadedFile) {
         return function(e) {
+
           console.log("Parsing SVG paths...");
           // Get the paths out of the SVG
           var svgDoc = $.parseXML(e.target.result);
+
+          // set on-screen
+          doc = document.importNode(svgDoc.documentElement, true);
+          doc.id = "uploadedSVG";
+          doc.style.display = "block";
+          $('#uploadedSVG').replaceWith(doc);
+          
           // "Flatten" the SVG by applying all transforms to shapes and paths
-          flatten(svgDoc.children[0]);
+          flatten(document.getElementById('uploadedSVG'));
           // Write to global paths variable. Is there an easy way to return from a closure?
-          svgPaths = $("path", svgDoc).map(function(){return $(this).attr("d");}).get();
+          svgPaths = $("path", document.getElementById('uploadedSVG')).map(
+                function(){return $(this).attr("d");}
+          ).get();
+          
           // Store the file name in a global
           fileName = uploadedFile.name;
           // In case this is the second file uploaded.
           clearGroup(group);
           // Render the SVG for the first time
+
           renderObject(svgPaths, scene, group, getFormSelections());
         };
       })(file);
@@ -294,8 +302,6 @@
 
       // Reads the SVG contents into a string
       readerString.readAsText(evt.target.files[0]);
-      // Reads the SVG as a blob, to be referenced via URL
-      readerURL.readAsDataURL(evt.target.files[0]);
     };
   </script>
 

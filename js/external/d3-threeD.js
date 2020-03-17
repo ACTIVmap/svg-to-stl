@@ -5,6 +5,8 @@
 function d3threeD(exports) {
   const DEGS_TO_RADS = Math.PI / 180, UNIT_SIZE = 100;
   const DIGIT_0 = 48, DIGIT_9 = 57, COMMA = 44, SPACE = 32, PERIOD = 46, MINUS = 45;
+  const CHAR_E = 69;
+  const CHAR_e = 101;
   exports.transformSVGPath =
     function transformSVGPath(pathStr) {
       var path = new THREE.Shape();
@@ -28,7 +30,7 @@ function d3threeD(exports) {
           // eat number
           while (idx < len) {
               c = pathStr.charCodeAt(idx);
-              if (DIGIT_0 <= c && c <= DIGIT_9) {
+              if ((DIGIT_0 <= c && c <= DIGIT_9) || (c === CHAR_e|| c === CHAR_E)) {
                   idx++;
                   continue;
               }
