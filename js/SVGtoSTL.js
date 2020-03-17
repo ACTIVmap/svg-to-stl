@@ -137,7 +137,7 @@ function getExtrudedSvgObject( paths, options ) {
 
     // Extrude all the shapes WITHOUT BEVEL
     var extruded = new THREE.ExtrudeGeometry( shapes, {
-        amount: options.typeDepth,
+        depth: options.typeDepth,
         bevelEnabled: false
     });
 
@@ -151,7 +151,7 @@ function getExtrudedSvgObject( paths, options ) {
     // Extrude with bevel instead if requested.
     if(options.bevelEnabled) {
         extruded = new THREE.ExtrudeGeometry( shapes, {
-            amount: (options.bevelEnabled) ? 0 : options.typeDepth,
+            depth: (options.bevelEnabled) ? 0 : options.typeDepth,
             bevelEnabled: options.bevelEnabled,
             bevelThickness: options.typeDepth,
             // Since we're going to scale X/Y shortly, but not Z,
