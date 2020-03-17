@@ -9,7 +9,7 @@ function d3threeD(exports) {
   const CHAR_e = 101;
   exports.transformSVGPath =
     function transformSVGPath(pathStr) {
-      var path = new THREE.Shape();
+      var path = new THREE.ShapePath();
       var idx = 1, len = pathStr.length, activeCmd,
           x = 0, y = 0, nx = 0, ny = 0, firstX = null, firstY = null,
           x1 = 0, x2 = 0, y1 = 0, y2 = 0,
