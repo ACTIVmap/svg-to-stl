@@ -47,8 +47,14 @@ function renderObject(paths, scene, group, options) {
 
         // Positive typeDepth means raised
         // Negative typeDepth means sunken 
-        finalObj = THREE.CSG.toMesh((options.typeDepth > 0) ?
-                        svgCSG.union(baseCSG) : baseCSG.intersect(svgCSG), options.material );
+        finalObj = THREE.CSG.toMesh((options.typeDepth > 0) ? svgCSG.union(baseCSG) : baseCSG.intersect(svgCSG),
+            options.material);
+        
+        // remove double points
+        finalObj.geometry.mergeVertices();
+        
+        // TODO: correct here the topology of the mesh
+                        
     }
     // Didn't want a base plate
     else {
