@@ -37,19 +37,18 @@ function renderObject(paths, scene, group, options) {
         var basePlateMesh = getBasePlateObject( options, svgMesh );
 
         // For constructive solid geometry (CSG) actions
-        baseCSG = new ThreeBSP( basePlateMesh );
-        svgCSG  = new ThreeBSP( svgMesh );
+        baseCSG = THREE.CSG.fromMesh( basePlateMesh );
+        svgCSG  = THREE.CSG.fromMesh( svgMesh );
 
         // If we haven't inverted the type, the SVG is "inside-out"
         if(!options.wantInvertedType) {
-            svgCSG = new ThreeBSP( svgCSG.tree.clone().invert() );
+            svgCSG = svgCSG.invert();
         }
 
         // Positive typeDepth means raised
         // Negative typeDepth means sunken 
-        finalObj = (options.typeDepth > 0) ?
-            baseCSG.union( svgCSG ).toMesh( options.material ) :
-            baseCSG.intersect( svgCSG ).toMesh( options.material );
+        finalObj = THREE.CSG.toMesh((options.typeDepth > 0) ?
+                        svgCSG.union(baseCSG) : baseCSG.intersect(svgCSG), options.material );
     }
     // Didn't want a base plate
     else {
