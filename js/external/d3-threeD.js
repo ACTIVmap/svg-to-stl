@@ -9,13 +9,13 @@ function d3threeD(exports) {
   const CHAR_e = 101;
   exports.transformSVGPath =
     function transformSVGPath(pathStr) {
-      var path = new THREE.Shape();
+      var path = new THREE.ShapePath();
       var idx = 1, len = pathStr.length, activeCmd,
           x = 0, y = 0, nx = 0, ny = 0, firstX = null, firstY = null,
           x1 = 0, x2 = 0, y1 = 0, y2 = 0,
           rx = 0, ry = 0, xar = 0, laf = 0, sf = 0, cx, cy;
       function eatNum() {
-          var sidx, c, isFloat = false, s;
+          var sidx, c, isFloat = false, s, exp = false;
           // eat delims
           while (idx < len) {
               c = pathStr.charCodeAt(idx);
@@ -30,7 +30,16 @@ function d3threeD(exports) {
           // eat number
           while (idx < len) {
               c = pathStr.charCodeAt(idx);
-              if ((DIGIT_0 <= c && c <= DIGIT_9) || (c === CHAR_e|| c === CHAR_E)) {
+              if (DIGIT_0 <= c && c <= DIGIT_9) {
+                  idx++;
+                  continue;
+              }
+              else if (c === CHAR_e|| c === CHAR_E) {
+                  idx++;
+                  exp = true;
+                  continue;
+              }
+              else if (c === MINUS) {
                   idx++;
                   continue;
               }

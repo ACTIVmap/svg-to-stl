@@ -277,7 +277,7 @@
           // set on-screen
           doc = document.importNode(svgDoc.documentElement, true);
           doc.id = "uploadedSVG";
-          doc.style.display = "block";
+          doc.style.display = "inline";
           $('#uploadedSVG').replaceWith(doc);
           
           // "Flatten" the SVG by applying all transforms to shapes and paths
@@ -292,7 +292,7 @@
           // In case this is the second file uploaded.
           clearGroup(group);
           // Render the SVG for the first time
-
+          console.log(svgPaths);
           renderObject(svgPaths, scene, group, getFormSelections());
         };
       })(file);
