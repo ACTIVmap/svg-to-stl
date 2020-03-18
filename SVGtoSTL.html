@@ -190,7 +190,7 @@
                 <div id="stlCanvas" class="stlCanvas card-img-top"></div>
                 <div class="card-body">
                     <h5 class="card-title">Generated mesh</h5>
-                    <p class="card-text"></p>
+                    <p class="card-text" id="meshText"></p>
                     <form>
                         <button type="submit" class="btn btn-primary btn-block" id="download" disabled="disabled">Download mesh</button>
                     </form>
@@ -222,7 +222,11 @@
             e.preventDefault();
             // Numeric validations would go here
             clearGroup(group);
-            renderObject(svgPaths, scene, group, camera, getFormSelections());
+            // regenerate mesh
+            nbElems = renderObject(svgPaths, scene, group, camera, getFormSelections());
+            // give info to the user about the mesh
+            $("#meshText").html("This mesh contains " + nbElems.vertices + " vertices and " + nbElems.faces + " faces");
+
             return true;
         });   
         // Disable some options that don't apply when base plate is off
@@ -395,8 +399,10 @@
           clearGroup(group);
           
           // Render the SVG for the first time
-          renderObject(svgPaths, scene, group, camera, getFormSelections());
+          var nbElems = renderObject(svgPaths, scene, group, camera, getFormSelections());
           
+          // give info to the user about the mesh
+          $("#meshText").html("This mesh contains " + nbElems.vertices + " vertices and " + nbElems.faces + " faces");
         };
       })(file);
 

@@ -87,6 +87,8 @@ function renderObject(paths, scene, group, camera, options) {
     var helper = new THREE.GridHelper( options.typeSize * 1.3, 10 );
     helper.rotation.x = Math.PI / 2;
     group.add( helper );
+    
+    return { vertices : finalObj.geometry.vertices.length, faces : finalObj.geometry.faces.length };
 };
 
 // Creates a three.js Mesh object for a base plate
