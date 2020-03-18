@@ -424,7 +424,7 @@
     }
 
     function init() {
-        var divWidth  = $("#main-container").width();
+        var divWidth  = $("#main-container").width() - 2;
         var divHeight = divWidth * 3 / 4;
         renderer = new THREE.WebGLRenderer( { antialias: true } );
         renderer.setClearColor( 0xffffff );
