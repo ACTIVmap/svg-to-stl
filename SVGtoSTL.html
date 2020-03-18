@@ -20,6 +20,10 @@
     <!-- Code that pulls all of the above together -->
     <script src="js/SVGtoSTL.js"></script>
     
+    <!-- Color picker -->
+    <script src="js/external/bootstrap-colorpicker.min.js"></script>
+    <link rel="stylesheet" href="css/external/bootstrap-colorpicker.min.css">
+    
     <!-- use bootstap for display -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" 
         integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
@@ -99,6 +103,7 @@
                         </fieldset>
                     </div>
                     <div class="tab-pane my-sm-3" id="display-options" role="tabpanel" aria-labelledby="display-options-tab">
+                        <h3>Geometry</h3>
                         <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="" id="showWireFrame">
                                 <label class="form-check-label" for="showWireFrame">
@@ -117,8 +122,14 @@
                                     Show Normals
                                 </label>
                         </div>
-                        
-                        <!-- TODO: choose color -->
+                        <h3>Colors</h3>
+                        <div class="form-check">
+                                <label class="form-check-label" for="colorPicker">
+                                    Rendering color
+                                </label>
+                            <input class="form-control" id="colorPicker" type="text" value="#007bff" />
+                        </div>
+
                     </div>
                     <div class="tab-pane my-sm-3" id="advanced-options" role="tabpanel" aria-labelledby="advanced-options-tab">
                     
@@ -203,6 +214,7 @@
 
     
         // Initialize the color picker
+        $("#colorPicker").colorpicker();
         //$("#colorPicker").spectrum({ color: "#5d9dea" });
         // Handler for form submit
         $("#renderButton").click(function(e){
@@ -281,8 +293,7 @@
             wantWireFrame: $("input#showWireFrame").prop("checked"),
             wantEdges: $("input#showEdges").prop("checked"),
             wantNormals: $("input#showNormals").prop("checked"),
-            objectColor: "#007bff"
-            //objectColor: $("input#colorPicker").spectrum("get").toHexString()
+            objectColor: $("input#colorPicker").val()
         };
     }
 
