@@ -6,7 +6,7 @@ function clearGroup(group) {
 }
 
 // Takes an SVG string, and returns a scene to render as a 3D STL
-function renderObject(paths, scene, group, options) {
+function renderObject(paths, scene, group, camera, options) {
     console.log("Rendering 3D object...");
 
     // Solid Color
@@ -63,6 +63,9 @@ function renderObject(paths, scene, group, options) {
 
     // Add the merged geometry to the scene
     group.add( finalObj );
+    
+    // change zoom wrt the size of the mesh
+    camera.position.set( 0, -options.typeSize, options.typeSize);
 
     // Show the wireframe?
     if(options.wantWireFrame) {
@@ -79,6 +82,11 @@ function renderObject(paths, scene, group, options) {
         var edges = new THREE.EdgesHelper( finalObj, 0xffffff );
         group.add( edges );
     }
+    
+    /// add backgroup a background grid
+    var helper = new THREE.GridHelper( options.typeSize * 1.3, 10 );
+    helper.rotation.x = Math.PI / 2;
+    group.add( helper );
 };
 
 // Creates a three.js Mesh object for a base plate

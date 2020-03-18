@@ -1,8 +1,10 @@
-<html>
+<html lang="en">
   <head>
     <title>Convert SVG to STL</title>
-    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-    <script src="js/external/jquery-2.1.4.min.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    
+    <script src="js/external/jquery-3.4.1.min.js"></script>
     <!-- WebGL Geometry and rendering library -->
     <script src="js/external/three.js"></script>
     <script src="js/external/OrbitControls.js"></script>
@@ -16,173 +18,210 @@
     <script src="js/external/ThreeCSG.js"></script>
     <!-- In-memory file reads and writes -->
     <script src="js/external/FileSaver.js"></script>
-    <!-- Javascript color-picker -->
-    <script src='js/external/spectrum.js'></script>
-    <link rel='stylesheet' href='css/spectrum.css'/>
     <!-- Code that pulls all of the above together -->
     <script src="js/SVGtoSTL.js"></script>
+    
+    <!-- use bootstap for display -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" 
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
 
-    <!-- Make it pretty -->
-    <link rel="stylesheet" type="text/css" href="css/style.css"/>
   </head>
   <body>
-    <div id="header">
-      <div class="uploadDiv">
-        <div class="fileUpload button">
-          <span><img src="img/image.svg"/> Upload SVG</span>
-          <input type="file" class="upload" name="files[]" accept="image/svg+xml"/>
+    <div class="container-xl" id="main-container">
+     <h1>Convert SVG to STL</h1>
+     <p class="lead">This tool has been developped within <a href="https://activmap.limos.fr/">ACTIVmap project</a> to convert 2D images into meshes for 3D printing. 
+     The main goal is to provide an easy-to-use way to generate 3D maps for people with visual impairment.</p>
+     <div class="row">
+        <div class="col-md-6 col-lg-4">
+            <h2>Input SVG image</h2>
+            <form>
+                <div class="btn btn-primary btn-block" style="position: relative">
+                        <label style="padding: 0; margin: 0">Choose file</label>
+                        <input type="file" id="svgInputFile" name="files[]" accept="image/svg+xml" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: pointer; opacity: 0">
+                    </div>
+                <!-- div class="input-group">
+                    <div class="custom-file">
+                        <label class="custom-file-label" for="svgInputFile" id="svgInputFileLabel">Choose file</label>
+                        <input type="file" class="custom-file-input" id="svgInputFile" name="files[]" accept="image/svg+xml">
+                    </div>
+                </div-->
+            </form>
+            <div class="card">
+                <img src="img/image.svg" class="card-img-top" alt="svg image (not yet selected)" id="uploadedSVG">
+                <div class="card-body">
+                    <h5 class="card-title"  id="svgTitle"></h5>
+                    <p class="card-text" id="svgText"></p>
+                </div>
+            </div>
+
         </div>
-      </div>
-      <div class="downloadDiv">
-        <div class="download button">
-          <img src="img/install.svg"/> Download STL
+        <div class="col-md-6 col-lg-8">
+            <h2>Options</h2>
+            <form>
+                <ul class="nav nav-tabs" id="optionTabs" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-toggle="tab" role="tab" href="#shape-options" id="shape-options-tab" aria-controls="shape-options-tab" aria-selected="true">Shapes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-toggle="tab" role="tab" href="#display-options" id="display-options-tab" aria-controls="display-options-tab" aria-selected="false">Display</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-toggle="tab" role="tab" href="#advanced-options" id="advanced-options-tab" aria-controls="advanced-options-tab" aria-selected="false">Advanced</a>
+                    </li>
+                </ul>
+                <div class="tab-content" id="myTabContent">
+                    <div class="tab-pane show active my-sm-3" id="shape-options" role="tabpanel" aria-labelledby="shape-options-tab">
+                        <fieldset>
+                            <h3>Base</h3>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="" id="ignoreSVGSize">
+                                <label class="form-check-label" for="ignoreSVGSize">
+                                    Force image size (ignoring SVG value)
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <input type="number" step="1" min="1" pattern="\d+" class="form-control" id="typeSize" aria-describedby="typeSizeHelper" value="60" disabled="disabled">
+                                <small id="typeSizeHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group col">
+                                    <label for="baseDepth">Depth of base</label>
+                                    <input type="number" step="1" min="1" pattern="\d+" class="form-control" id="baseDepth" aria-describedby="baseDepthHelper" value="5">
+                                    <small id="baseDepthHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
+                                </div>
+                                <div class="form-group col">
+                                    <label for="buffer">Buffer</label>
+                                    <input type="number" step="1" min="0" pattern="\d+" class="form-control" id="buffer" aria-describedby="bufferHelper" value="5">
+                                    <small id="bufferHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
+                                </div>
+                            </div>
+                            <h3>Type</h3>
+                            <div class="form-group">
+                                <label for="typeDepth">Depth of type</label>
+                                <input type="number" step="1" pattern="\d+" class="form-control" id="typeDepth" aria-describedby="typeDepthHelper" value="3">
+                                <small id="typeDepthHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
+                            </div>
+                            
+                        </fieldset>
+                    </div>
+                    <div class="tab-pane my-sm-3" id="display-options" role="tabpanel" aria-labelledby="display-options-tab">
+                        <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="" id="showWireFrame">
+                                <label class="form-check-label" for="showWireFrame">
+                                    Show Wire Frame
+                                </label>
+                        </div>
+                        <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="" id="showEdges" checked>
+                                <label class="form-check-label" for="showEdges">
+                                    Show Edges
+                                </label>
+                        </div>
+                        <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="" id="showNormals">
+                                <label class="form-check-label" for="showNormals">
+                                    Show Normals
+                                </label>
+                        </div>
+                        
+                        <!-- TODO: choose color -->
+                    </div>
+                    <div class="tab-pane my-sm-3" id="advanced-options" role="tabpanel" aria-labelledby="advanced-options-tab">
+                    
+                        <h3>Configure base</h3>
+                        
+                        <div class="form-row">
+                                <div class="form-group col">
+
+                                        <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" value="Use Base Plate" id="wantBasePlate" checked>
+                                                <label class="form-check-label" for="wantBasePlate">
+                                                    Use Base Plate
+                                                </label>
+                                        </div>
+                                        <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" value="Flare Type" id="bevel">
+                                                <label class="form-check-label" for="bevel">
+                                                    Flare Type
+                                                </label>
+                                        </div>                   
+                                </div>
+                                <div class="form-group col">
+
+                                    <label class="title baseShape" for="basePlateShape">Base Plate Shape</label>
+                                    
+                                    <select class="custom-select" id="basePlateShape">
+                                        <option selected value="Rectangular">Rectangular</option>
+                                        <option value="Circular">Circular</option>
+                                    </select>
+                                </div>
+                            </div>
+                        <h3>Fine SVG reading</h3>
+                        <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Invert Type" id="invertType">
+                                <label class="form-check-label" for="invertType">
+                                    Invert Type
+                                </label>
+                        </div>
+                        
+                        <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Reverse Winding Order" id="reverseWO">
+                                <label class="form-check-label" for="reverseWO">
+                                    Reverse Winding Order
+                                </label>
+                        </div>
+                    </div>
+                </div>
+
+                <input type="submit" class="btn btn-primary btn-block" id="renderButton" disabled="disabled" value="Re-render" />
+            </form>
         </div>
-      </div>
     </div>
-    <div id="content">
-      <div id="svgCanvas" class="svgCanvas">
-        <img id="uploadedSVG" src="#"/>
-      </div>
-      <div id="optionsDiv" class="optionsDiv">
-        <link rel="stylesheet" href="css/form-green.css" type="text/css" />
-        <!-- Start Formoid form-->
-        <form class="formoid-solid-light-green" style="background-color:#FFFFFF;font-size:14px;font-family:'Roboto',Arial,Helvetica,sans-serif;color:#34495E;max-width:480px;min-width:150px" method="post">
-          <div class="title"><h2>Options</h2></div>
-          <div class="element-input">
-            <label class="title" for="typeWidth">Image Size (mm)</label>
-            <div class="item-cont">
-              <input class="large" type="text" name="typeSize" id="typeSize" placeholder="Image Size (mm)" value="60"/>
-              </label>
-              <span class="icon-place"></span>
+    <div class="row">
+        <div class="col">
+            <h2>Output 3D object</h2>
+            <div class="card mb-3">
+                <div id="stlCanvas" class="stlCanvas card-img-top"></div>
+                <div class="card-body">
+                    <h5 class="card-title">Generated mesh</h5>
+                    <p class="card-text"></p>
+                    <form>
+                        <button type="submit" class="btn btn-primary btn-block" id="download" disabled="disabled">Download mesh</button>
+                    </form>
+                </div>        
             </div>
-          </div>
-          <div class="element-input">
-            <label class="title"></label>
-            <label class="title" for="typeDepth">Depth of Type (mm)</label>
-            <div class="item-cont">
-              <input class="large" type="text" name="typeDepth" id="typeDepth" placeholder="Depth of Type (mm)" value="3"/>
-              <span class="icon-place"></span>
-            </div>
-          </div>
-          <div class="element-checkbox">
-            <label class="title"></label>
-            <div class="column column1">
-              <label>
-                <input type="checkbox" name="checkbox[]" id="invertType" value="Invert Type"/>
-                <span>Invert Type</span>
-              </label>
-            </div>
-            <span class="clearfix"></span>
-          </div>
-          <div class="element-checkbox">
-            <label class="title"></label>
-            <div class="column column1">
-              <label>
-                <input type="checkbox" name="checkbox[]" id="bevel" value="Flare Type"/>
-                <span>Flare Type</span>
-              </label>
-            </div>
-            <span class="clearfix"></span>
-          </div>
-          <div class="element-checkbox">
-            <label class="title"></label>
-            <div class="column column1">
-              <label>
-                <input type="checkbox" name="checkbox[]" id="reverseWO" value="Reverse Winding Order"/>
-                <span>Reverse Winding-order</span>
-              </label>
-            </div>
-            <span class="clearfix"></span>
-          </div>
-          <div class="element-checkbox">
-            <label class="title"></label>
-            <div class="column column1">
-              <label>
-                <input type="checkbox" name="checkbox[]" id="wantBasePlate" value="Use Base Plate" checked/>
-                <span>Use Base Plate</span>
-              </label>
-            </div>
-            <span class="clearfix"></span>
-          </div>
-          <div class="element-radio">
-            <label class="title baseShape">Base Plate Shape</label>
-            <div class="column column1">
-              <label>
-                <input type="radio" name="baseShape" value="Rectangular" checked/>
-                <span>Rectangular</span>
-              </label>
-              <label>
-                <input type="radio" name="baseShape" value="Circular"/>
-                <span>Circular</span>
-              </label>
-            </div>
-            <span class="clearfix"></span>
-          </div>
-          <div class="element-input">
-            <label class="title"></label>
-            <label class="title baseDepth" for="baseDepth">Depth of Base (mm)</label>
-            <div class="item-cont">
-              <input class="large" type="text" name="baseDepth" id="baseDepth" placeholder="Depth of Base (mm)" value="5"/>
-              <span class="icon-place"></span>
-            </div>
-          </div>
-          <div class="element-input">
-            <label class="title"></label>
-            <label class="title buffer" for="buffer">Buffer (mm)</label>
-            <div class="item-cont">
-              <input class="large" type="text" name="buffer" id="buffer" placeholder="Buffer (mm)" value="5"/>
-              <span class="icon-place"></span>
-            </div>
-          </div>
-          <div class="element-checkbox">
-            <label class="title">Render Options</label>
-            <div class="column column1">
-              <label>
-                <input type="checkbox" name="checkbox1[]" id="showWireFrame" value="Show Wire Frame"/>
-                <span>Show Wire Frame</span>
-              </label>
-              <label>
-                <input type="checkbox" name="checkbox1[]" id="showEdges" value="Show Edges" checked/>
-                <span>Show Edges</span>
-              </label>
-              <label>
-                <input type="checkbox" name="checkbox1[]" id="showNormals" value="Show Normals"/>
-                <span>Show Normals</span>
-              </label>
-            </div>
-            <span class="clearfix"></span>
-          </div>
-          <div class="element-input">
-              <label class="title">Color</label>
-              <input type="text" id="colorPicker"/>
-          </div>
-          <div class="submit">
-            <input type="submit" value="Re-render"/>
-          </div>
-        </form>
-        <script type="text/javascript" src="js/form-green.js"></script>
-        <!-- Stop Formoid form-->
-      </div>
-      <div id="stlCanvas" class="stlCanvas">
-      </div>
+        </div>
     </div>
+    <div class="footer-page font-small pt-4">
+        <a href="https://github.com/jmtrivial/svg-to-stl">SVG-to-STL</a> 2020</footer>
+    </div>
+    
   <!-- In-memory file read and parsing -->
   <script>
     $(document).ready( function () {
-        // When asked to upload an SVG file, use this handler
-        $(".upload").on("change", handleFileSelect);
+        // loading a svg file will run the rendering process
+        $("#svgInputFile").on("change", handleFileSelect);
+    
+        // enable value selection
+        $('#ignoreSVGSize').on('change', function() {
+            $('#typeSize').prop('disabled', !$('#ignoreSVGSize').is(":checked"));
+        });
+
+    
         // Initialize the color picker
-        $("#colorPicker").spectrum({ color: "#5d9dea" });
+        //$("#colorPicker").spectrum({ color: "#5d9dea" });
         // Handler for form submit
-        $("form").submit(function(e){
+        $("#renderButton").click(function(e){
             e.preventDefault();
             // Numeric validations would go here
             clearGroup(group);
-            renderObject(svgPaths, scene, group, getFormSelections());
+            renderObject(svgPaths, scene, group, camera, getFormSelections());
             return true;
         });   
         // Disable some options that don't apply when base plate is off
         $("input#wantBasePlate").change(function() {
+            $("#ignoreSVGSize").prop( "disabled", !this.checked );
             $("input[name=baseShape]").prop( "disabled", !this.checked );
             $("label.baseShape").toggleClass("disabled");
             $("input#bevel").prop( "disabled", !this.checked );
@@ -190,12 +229,12 @@
             $("label.baseDepth").toggleClass("disabled");
             $("input#buffer").prop( "disabled", !this.checked );
             $("label.buffer").toggleClass("disabled");
-            $("input#basePlateShape").prop( "disabled", !this.checked );
+            $("select#basePlateShape").prop( "disabled", !this.checked );
             $("input#bevel").prop( "disabled", !this.checked );
         });
         // When asked to export 3D scene to STL file, do so,
         // using the uploaded filename with a changed extension
-        $(".download").on("click", function(){ saveSTL(scene, fileName.replace(/\.[^\.]*$/, "")); });
+        $("#download").on("click", function(){ saveSTL(scene, fileName.replace(/\.[^\.]*$/, "")); });
     });
 
     // Check for webgl support
@@ -233,6 +272,7 @@
     // The 'path' tags from the SVG are all we need to keep.
     var svgPaths = [];
 
+    
     // Pull options from the form
     function getFormSelections() {
         return {
@@ -242,19 +282,26 @@
             svgWindingIsCW: $("input#reverseWO").prop("checked"),
             bevelEnabled: $("input#bevel").prop("checked"),
             wantBasePlate: $("input#wantBasePlate").prop("checked"),
-            basePlateShape: $("input[name=baseShape]:checked").val(),
+            basePlateShape: $("select#basePlateShape option:selected").val(),
             baseDepth: Math.abs(Number($("input#baseDepth").val())),
             baseBuffer: Math.abs(Number($("input#buffer").val())),
             wantWireFrame: $("input#showWireFrame").prop("checked"),
             wantEdges: $("input#showEdges").prop("checked"),
             wantNormals: $("input#showNormals").prop("checked"),
-            objectColor: $("input#colorPicker").spectrum("get").toHexString()
+            objectColor: "#007bff"
+            //objectColor: $("input#colorPicker").spectrum("get").toHexString()
         };
     }
 
     function handleFileSelect(evt) {
+      // render button is active
+      $('#renderButton').prop('disabled', false);
+      $('#download').prop('disabled', false);
+
+    
       var file = evt.target.files[0]; // FileList object
 
+      
       // Only process image files.
       if (file.type!="image/svg+xml") {
         return;
@@ -277,8 +324,47 @@
           // set on-screen
           doc = document.importNode(svgDoc.documentElement, true);
           doc.id = "uploadedSVG";
-          doc.style.display = "inline";
+          
+          sizeDefinition = "";
+
+          // check if a width is given in mm, cm or in in the SVG file
+          svgwidth = null;
+          if ([6, 7, 8].includes(doc.width.baseVal.unitType)) {
+            doc.width.baseVal.convertToSpecifiedUnits(7);
+            svgwidth = doc.width.baseVal.valueInSpecifiedUnits;
+            sizeDefinition += " Width: " + svgwidth + "mm.";
+          }
+          // check if a height is given in mm, cm or in in the SVG file
+          svgheight = null;
+          if ([6, 7, 8].includes(doc.height.baseVal.unitType)) {
+            doc.height.baseVal.convertToSpecifiedUnits(7);
+            svgheight = doc.height.baseVal.valueInSpecifiedUnits;
+            sizeDefinition += " Height: " + svgheight + "mm.";
+          }
+          if (sizeDefinition == "")
+            sizeDefinition = "No fabrication size defined in this file.";
+          
+          
+          if ($("#typeSize").prop("disabled")) {
+            if ((svgwidth == null) && (svgwidth == null))
+                // reset value if not defined in the file
+                $("#typeSize").val(60);
+            else {
+                // compute the size contained in the SVG file
+                tsize = -1;
+                if ((svgwidth != null) && (svgwidth > tsize)) tsize = svgwidth;
+                if ((svgheight != null) && (svgheight > tsize)) tsize = svgheight;
+                if (tsize > 0) $("#typeSize").val(tsize);
+            }
+          }
+          
           $('#uploadedSVG').replaceWith(doc);
+          $('#uploadedSVG').addClass("card-img-top");
+          $('#uploadedSVG').removeAttr("width");
+          $('#uploadedSVG').removeAttr("height");
+          $('#uploadedSVG').attr("alt", "svg image");
+          $('#uploadedSVG').attr("id", "uploadedSVG");
+          $('#uploadedSVG').addClass("card-img-top");
           
           // "Flatten" the SVG by applying all transforms to shapes and paths
           flatten(document.getElementById('uploadedSVG'));
@@ -287,12 +373,25 @@
                 function(){return $(this).attr("d");}
           ).get();
           
-          // Store the file name in a global
+
+           // Store the file name in a global
           fileName = uploadedFile.name;
+
+          // display information about the svg file
+          $("#svgTitle").html(fileName);
+          if (svgPaths.length == 0)
+            $("#svgText").html("No path found in this image.<br />" + sizeDefinition);
+          else if (svgPaths.length == 1)
+            $("#svgText").html("One path found in this image.<br />" + sizeDefinition);
+          else
+            $("#svgText").html(svgPaths.length + " paths found in this image.<br />" + sizeDefinition);
+          
           // In case this is the second file uploaded.
           clearGroup(group);
+          
           // Render the SVG for the first time
-          renderObject(svgPaths, scene, group, getFormSelections());
+          renderObject(svgPaths, scene, group, camera, getFormSelections());
+          
         };
       })(file);
 
@@ -314,21 +413,21 @@
     }
 
     function init() {
-        var divWidth  = (window.innerWidth/2)  - 100;
-        var divHeight = (window.innerHeight) - 60;
+        var divWidth  = $("#main-container").width();
+        var divHeight = divWidth * 3 / 4;
         renderer = new THREE.WebGLRenderer( { antialias: true } );
-        renderer.setClearColor( 0xe0e0e0 );
+        renderer.setClearColor( 0xffffff );
         renderer.setPixelRatio( window.devicePixelRatio );
         renderer.setSize( divWidth, divHeight );
 
         scene = new THREE.Scene();
 
         camera = new THREE.PerspectiveCamera( 50, divWidth/divHeight, 1, 1000 );
-        camera.position.set( 0, -200, 200 );
+        camera.position.set( 0, -100, 100);
 
         controls = new THREE.OrbitControls( camera, renderer.domElement );
         controls.minDistance = 50;
-        controls.maxDistance = 200;
+        controls.maxDistance = 600;
 
         scene.add( new THREE.AmbientLight( 0x222222 ) );
 
@@ -341,18 +440,20 @@
         light.position.copy( camera.position );
         scene.add( light );
 
-        /// backgroup grids
-        var helper = new THREE.GridHelper( 70, 10 );
-        helper.rotation.x = Math.PI / 2;
-        scene.add( helper );
+        
 
         group= new THREE.Group();
         scene.add( group );
 
+        /// backgroup grids
+        var helper = new THREE.GridHelper( 70, 10 );
+        helper.rotation.x = Math.PI / 2;
+        group.add( helper );
+        
         window.addEventListener( 'resize', onWindowResize, false );
         function onWindowResize(){
-            var divWidth  = (window.innerWidth/2)  - 100;
-            var divHeight = (window.innerHeight) - 60;
+            var divWidth  = $("#main-container").width();
+            var divHeight =  divWidth * 3 / 4;
             camera.aspect = divWidth / divHeight;
             camera.updateProjectionMatrix();
             renderer.setSize( divWidth, divHeight );
@@ -365,5 +466,7 @@
         renderer.render( scene, camera );
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
   </body>
 </html>
