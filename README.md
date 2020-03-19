@@ -4,10 +4,10 @@ Created to enable the 3D printing of plates for a [printing press] from a 2D vec
 ### Demo
 You can try the tool [online](https://svg-to-stl.jmfavreau.info).
 
-There are example SVG files in [example-svg/Entypo].
+There are example SVG files in [example-svg/].
 
 ### Screenshot
- ![Screenshot](https://github.com/rcalme/svg-to-stl/blob/master/screenshot.png)
+ ![Screenshot](https://raw.githubusercontent.com/jmtrivial/svg-to-stl/master/screenshot.png)
 
 ### Options
   - Specifying type height
