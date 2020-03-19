@@ -303,7 +303,7 @@
     // Pull options from the form
     function getFormSelections() {
         return {
-            objectWidth: $("input#ignoreSVGSize").prop("checked") ? Math.abs(Number($("input#objectWidth").val())) : svgwidth,
+            objectWidth: $("input#ignoreSVGSize").prop("checked") || svgwidth == null ? Math.abs(Number($("input#objectWidth").val())) : svgwidth,
             typeDepth: Number($("input#typeDepth").val()),
             wantInvertedType: $("input#invertType").prop("checked"),
             svgWindingIsCW: $("input#reverseWO").prop("checked"),
