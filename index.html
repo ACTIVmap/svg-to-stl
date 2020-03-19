@@ -29,6 +29,8 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" 
         integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
 
+    <!-- dark colors -->
+    <link rel="stylesheet" href="css/external/bootstrap-dark.min.css">
   </head>
   <body>
     <div class="container-xl" id="main-container">
@@ -70,7 +72,7 @@
                 <div class="tab-content" id="myTabContent">
                     <div class="tab-pane show active my-sm-3" id="shape-options" role="tabpanel" aria-labelledby="shape-options-tab">
                         <fieldset>
-                            <h3>Base</h3>
+                            <h3>Size</h3>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="" id="ignoreSVGSize">
                                 <label class="form-check-label" for="ignoreSVGSize">
@@ -78,8 +80,11 @@
                                 </label>
                             </div>
                             <div class="form-group">
-                                <input type="number" step="1" min="1" pattern="\d+" class="form-control" id="typeSize" aria-describedby="typeSizeHelper" value="60" disabled="disabled">
-                                <small id="typeSizeHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
+                                <label class="form-check-label" for="objectWidth">
+                                    Object width
+                                </label>
+                                <input type="number" step="1" min="1" pattern="\d+" class="form-control" id="objectWidth" aria-describedby="objectWidthHelper" value="60" disabled="disabled">
+                                <small id="objectWidthHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
                             </div>
                             
                             <div class="form-row">
@@ -90,7 +95,7 @@
                                 </div>
                                 <div class="form-group col">
                                     <label for="buffer">Buffer</label>
-                                    <input type="number" step="1" min="0" pattern="\d+" class="form-control" id="buffer" aria-describedby="bufferHelper" value="5">
+                                    <input type="number" step="1" min="0" pattern="\d+" class="form-control" id="buffer" aria-describedby="bufferHelper" value="0">
                                     <small id="bufferHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
                                 </div>
                             </div>
@@ -146,9 +151,9 @@
                                                 </label>
                                         </div>
                                         <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" value="Flare Type" id="bevel">
-                                                <label class="form-check-label" for="bevel">
-                                                    Flare Type
+                                                <input class="form-check-input" type="checkbox" value="Ignore document margins" id="ignoreDocumentMargins">
+                                                <label class="form-check-label" for="ignoreDocumentMargins">
+                                                    Ignore document margins (given size is type size)
                                                 </label>
                                         </div>                   
                                 </div>
@@ -199,7 +204,7 @@
         </div>
     </div>
     <div class="footer-page font-small mb-3" style="font-size: 80%">
-	    <a href="https://github.com/jmtrivial/svg-to-stl">SVG-to-STL</a> by <a href="https://jmfavreau.info">Jean-Marie Favreau</a> for <a href="https://activmap.limos.fr">ACTIVmap project</a>, March 2020. Special thanks to Ryan Calme for the <a href="https://github.com/rcalme/svg-to-stl">first version of this tool</a>, and all the developers of the used libraries for their work.</footer>
+	    <a href="https://github.com/jmtrivial/svg-to-stl">SVG-to-STL</a> by <a href="https://jmfavreau.info">Jean-Marie Favreau</a> for <a href="https://activmap.limos.fr">ACTIVmap project</a>, March 2020. Special thanks to Ryan Calme for the <a href="https://github.com/rcalme/svg-to-stl">first version of this tool</a>, and for developers of the libraries used in this software.</footer>
     </div>
     
   <!-- In-memory file read and parsing -->
@@ -210,7 +215,7 @@
     
         // enable value selection
         $('#ignoreSVGSize').on('change', function() {
-            $('#typeSize').prop('disabled', !$('#ignoreSVGSize').is(":checked"));
+            $('#objectWidth').prop('disabled', !$('#ignoreSVGSize').is(":checked"));
         });
 
     
@@ -223,9 +228,11 @@
             // Numeric validations would go here
             clearGroup(group);
             // regenerate mesh
-            nbElems = renderObject(svgPaths, scene, group, camera, getFormSelections());
+            geom = renderObject(svgPaths, viewBox, scene, group, camera, getFormSelections());
             // give info to the user about the mesh
-            $("#meshText").html("This mesh contains " + nbElems.vertices + " vertices and " + nbElems.faces + " faces");
+            $("#meshText").html("This mesh contains " + geom.vertices + " vertices and " + geom.faces + " faces. <br />Bounding box: ["
+                                + geom.bbox.min.x + ", " + geom.bbox.min.y + ", " + geom.bbox.min.z + "] [" 
+                                + geom.bbox.max.x + ", " + geom.bbox.max.y + ", " + geom.bbox.max.z + "]");
 
             return true;
         });   
@@ -234,13 +241,11 @@
             $("#ignoreSVGSize").prop( "disabled", !this.checked );
             $("input[name=baseShape]").prop( "disabled", !this.checked );
             $("label.baseShape").toggleClass("disabled");
-            $("input#bevel").prop( "disabled", !this.checked );
             $("input#baseDepth").prop( "disabled", !this.checked );
             $("label.baseDepth").toggleClass("disabled");
             $("input#buffer").prop( "disabled", !this.checked );
             $("label.buffer").toggleClass("disabled");
             $("select#basePlateShape").prop( "disabled", !this.checked );
-            $("input#bevel").prop( "disabled", !this.checked );
         });
         // When asked to export 3D scene to STL file, do so,
         // using the uploaded filename with a changed extension
@@ -281,16 +286,20 @@
     var fileName;
     // The 'path' tags from the SVG are all we need to keep.
     var svgPaths = [];
+    
+    // SVG viewBox 
+    var viewBox = [];
+    
+    var svgwidth = null;
 
     
     // Pull options from the form
     function getFormSelections() {
         return {
-            typeSize: Math.abs(Number($("input#typeSize").val())),
+            objectWidth: $("input#ignoreSVGSize").prop("checked") ? Math.abs(Number($("input#objectWidth").val())) : svgwidth,
             typeDepth: Number($("input#typeDepth").val()),
             wantInvertedType: $("input#invertType").prop("checked"),
             svgWindingIsCW: $("input#reverseWO").prop("checked"),
-            bevelEnabled: $("input#bevel").prop("checked"),
             wantBasePlate: $("input#wantBasePlate").prop("checked"),
             basePlateShape: $("select#basePlateShape option:selected").val(),
             baseDepth: Math.abs(Number($("input#baseDepth").val())),
@@ -298,7 +307,9 @@
             wantWireFrame: $("input#showWireFrame").prop("checked"),
             wantEdges: $("input#showEdges").prop("checked"),
             wantNormals: $("input#showNormals").prop("checked"),
-            objectColor: $("input#colorPicker").val()
+            objectColor: $("input#colorPicker").val(),
+            squareBase: $("input#squareBase").prop("checked"),
+            ignoreDocumentMargins: $("input#ignoreDocumentMargins").prop("checked")
         };
     }
 
@@ -352,20 +363,7 @@
           }
           if (sizeDefinition == "")
             sizeDefinition = "No fabrication size defined in this file.";
-          
-          
-          if ($("#typeSize").prop("disabled")) {
-            if ((svgwidth == null) && (svgwidth == null))
-                // reset value if not defined in the file
-                $("#typeSize").val(60);
-            else {
-                // compute the size contained in the SVG file
-                tsize = -1;
-                if ((svgwidth != null) && (svgwidth > tsize)) tsize = svgwidth;
-                if ((svgheight != null) && (svgheight > tsize)) tsize = svgheight;
-                if (tsize > 0) $("#typeSize").val(tsize);
-            }
-          }
+
           
           $('#uploadedSVG').replaceWith(doc);
           $('#uploadedSVG').addClass("card-img-top");
@@ -382,6 +380,9 @@
                 function(){return $(this).attr("d");}
           ).get();
           
+          // get viewBox
+          viewBox = [doc.viewBox.baseVal.x, doc.viewBox.baseVal.y,
+                    doc.viewBox.baseVal.width, doc.viewBox.baseVal.height];
 
            // Store the file name in a global
           fileName = uploadedFile.name;
@@ -399,10 +400,12 @@
           clearGroup(group);
           
           // Render the SVG for the first time
-          var nbElems = renderObject(svgPaths, scene, group, camera, getFormSelections());
+          var geom = renderObject(svgPaths, viewBox, scene, group, camera, getFormSelections());
           
           // give info to the user about the mesh
-          $("#meshText").html("This mesh contains " + nbElems.vertices + " vertices and " + nbElems.faces + " faces");
+          $("#meshText").html("This mesh contains " + geom.vertices + " vertices and " + geom.faces + " faces. <br />Bounding box: ["
+                                + geom.bbox.min.x + ", " + geom.bbox.min.y + ", " + geom.bbox.min.z + "] [" 
+                                + geom.bbox.max.x + ", " + geom.bbox.max.y + ", " + geom.bbox.max.z + "]");
         };
       })(file);
 
@@ -425,9 +428,9 @@
 
     function init() {
         var divWidth  = $("#main-container").width() - 2;
-        var divHeight = divWidth * 3 / 4;
+        var divHeight = divWidth * window.innerHeight / window.innerWidth;
         renderer = new THREE.WebGLRenderer( { antialias: true } );
-        renderer.setClearColor( 0xffffff );
+        renderer.setClearColor( 0x212529 );
         renderer.setPixelRatio( window.devicePixelRatio );
         renderer.setSize( divWidth, divHeight );
 
