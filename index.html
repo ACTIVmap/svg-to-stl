@@ -72,21 +72,6 @@
                 <div class="tab-content" id="myTabContent">
                     <div class="tab-pane show active my-sm-3" id="shape-options" role="tabpanel" aria-labelledby="shape-options-tab">
                         <fieldset>
-                            <h3>Size</h3>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="" id="ignoreSVGSize">
-                                <label class="form-check-label" for="ignoreSVGSize">
-                                    Force image size (ignoring SVG value)
-                                </label>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-check-label" for="objectWidth">
-                                    Object width
-                                </label>
-                                <input type="number" step="1" min="1" pattern="\d+" class="form-control" id="objectWidth" aria-describedby="objectWidthHelper" value="60" disabled="disabled">
-                                <small id="objectWidthHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
-                            </div>
-                            
                             <h3>Shapes</h3>
                             
                             <div class="form-group">
@@ -141,8 +126,23 @@
 
                     </div>
                     <div class="tab-pane my-sm-3" id="advanced-options" role="tabpanel" aria-labelledby="advanced-options-tab">
-                    
-                        <h3>Configure base</h3>
+                                                <h3>Size</h3>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="" id="ignoreSVGSize">
+                                <label class="form-check-label" for="ignoreSVGSize">
+                                    Force image size (ignoring SVG value)
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-check-label" for="objectWidth">
+                                    Object width
+                                </label>
+                                <input type="number" step="1" min="1" pattern="\d+" class="form-control" id="objectWidth" aria-describedby="objectWidthHelper" value="60" disabled="disabled">
+                                <small id="objectWidthHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
+                            </div>
+                            
+
+                        <h3>Base</h3>
                         
                         <div class="form-row">
                                 <div class="form-group col">
