@@ -6,9 +6,8 @@ function clearGroup(group) {
 }
 
 // Takes an SVG string, and returns a scene to render as a 3D STL
-function renderObject(paths, viewBox, scene, group, camera, options) {
+function renderObject(paths, viewBox, svgColors, scene, group, camera, options) {
     console.log("Rendering 3D object...");
-
     // Solid Color
     options.color = new THREE.Color( options.objectColor ); 
     options.material = (options.wantInvertedType) ?
@@ -22,7 +21,7 @@ function renderObject(paths, viewBox, scene, group, camera, options) {
           side:THREE.DoubleSide});
 
     // Create an extrusion from the SVG path shapes
-    var svgMesh = getExtrudedSvgObject( paths, viewBox, options );
+    var svgMesh = getExtrudedSvgObject( paths, viewBox, svgColors, options);
 
     // Will hold the joined geometry
     var finalObj;
@@ -45,10 +44,12 @@ function renderObject(paths, viewBox, scene, group, camera, options) {
             svgCSG = svgCSG.invert();
         }
 
+        // TODO: reintroduce negative typeDepths
         // Positive typeDepth means raised
         // Negative typeDepth means sunken 
-        finalObj = THREE.CSG.toMesh((options.typeDepth > 0) ? svgCSG.union(baseCSG) : baseCSG.intersect(svgCSG),
-            options.material);
+        /*finalObj = THREE.CSG.toMesh((options.typeDepth > 0) ? svgCSG.union(baseCSG) : baseCSG.intersect(svgCSG),
+            options.material);*/
+        finalObj = THREE.CSG.toMesh(svgCSG.union(baseCSG), options.material);
         
         // remove double points
         finalObj.geometry.mergeVertices();
@@ -153,32 +154,34 @@ function getBasePlateObject( options, svgMesh, viewBox ) {
 }
 
 // Creates a three.js Mesh object out of SVG paths
-function getExtrudedSvgObject( paths, viewBox, options ) {
+function getExtrudedSvgObject( paths, viewBox, svgColors, options ) {
     
-    var shapes = [];
+    extruded = new THREE.Geometry();
     for (var i = 0; i < paths.length; ++i) {
         // Turn each SVG path into a three.js shape
         var path = d3.transformSVGPath( paths[i] );
         // We may have had the winding order backward.
         var newShapes = path.toShapes(options.svgWindingIsCW);
-        // Add these three.js shapes to an array.
-        shapes = shapes.concat(newShapes);
+        
+        // extrude the shape wrt its depth
+        var extrudedShape = new THREE.ExtrudeGeometry( newShapes, {
+            depth: options.typeDepths[svgColors[i]],
+            bevelEnabled: false
+        });
+        
+        // add the extruded shape in the final geometry
+        extruded.merge(extrudedShape); 
     }
+    
+    
+    
+    // TODO: reintroduce negative typeDepths
     // Negative typeDepths are ok, but can't be deeper than the base
-    if(options.wantBasePlate &&
+    /*if(options.wantBasePlate &&
         options.typeDepth < 0 &&
         Math.abs(options.typeDepth) > options.baseDepth) {
         options.typeDepth = -1 * options.baseDepth;
-    }
-    
-
-    // Extrude all the shapes 
-    var extruded = new THREE.ExtrudeGeometry( shapes, {
-        depth: options.typeDepth,
-        bevelEnabled: false
-    });
-
-
+    }*/
     
     // Find the bounding box of this extrusion
     extruded.computeBoundingBox();

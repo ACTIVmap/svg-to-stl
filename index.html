@@ -87,23 +87,26 @@
                                 <small id="objectWidthHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
                             </div>
                             
-                            <div class="form-row">
-                                <div class="form-group col">
-                                    <label for="baseDepth">Depth of base</label>
-                                    <input type="number" step="1" min="1" pattern="\d+" class="form-control" id="baseDepth" aria-describedby="baseDepthHelper" value="5">
-                                    <small id="baseDepthHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
-                                </div>
-                                <div class="form-group col">
-                                    <label for="buffer">Buffer</label>
-                                    <input type="number" step="1" min="0" pattern="\d+" class="form-control" id="buffer" aria-describedby="bufferHelper" value="0">
-                                    <small id="bufferHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
-                                </div>
-                            </div>
-                            <h3>Type</h3>
+                            <h3>Shapes</h3>
+                            
                             <div class="form-group">
-                                <label for="typeDepth">Depth of type</label>
-                                <input type="number" step="1" pattern="\d+" class="form-control" id="typeDepth" aria-describedby="typeDepthHelper" value="3">
-                                <small id="typeDepthHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">#</th>
+                                            <th scope="col">Original color</th>
+                                            <th scope="col">Elevation from the base in the 3D object</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tableDepths">
+                                        <tr>
+                                            <th scope="row" style="vertical-align: middle">1</th>
+                                            <td style="vertical-align: middle"><span style="background: #000000; cursor: auto" class="btn">#000000</span></td>
+                                            <td><input type="number" class="form-control" id="typeDepth1" value="3"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <small class="form-text text-muted">Unit: millimeters. Only positive values.</small>
                             </div>
                             
                         </fieldset>
@@ -167,6 +170,18 @@
                                     </select>
                                 </div>
                             </div>
+                            <div class="form-row">
+                                <div class="form-group col">
+                                    <label for="baseDepth">Depth of base</label>
+                                    <input type="number" step="1" min="1" pattern="\d+" class="form-control" id="baseDepth" aria-describedby="baseDepthHelper" value="5">
+                                    <small id="baseDepthHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
+                                </div>
+                                <div class="form-group col">
+                                    <label for="buffer">Buffer</label>
+                                    <input type="number" step="1" min="0" pattern="\d+" class="form-control" id="buffer" aria-describedby="bufferHelper" value="0">
+                                    <small id="bufferHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
+                                </div>
+                            </div>
                         <h3>Fine SVG reading</h3>
                         <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="Invert Type" id="invertType">
@@ -228,7 +243,7 @@
             // Numeric validations would go here
             clearGroup(group);
             // regenerate mesh
-            geom = renderObject(svgPaths, viewBox, scene, group, camera, getFormSelections());
+            var geom = renderObject(svgPaths, viewBox, svgColors, scene, group, camera, getFormSelections());
             // give info to the user about the mesh
             displayInfos(geom);
 
@@ -293,18 +308,31 @@
     var fileName;
     // The 'path' tags from the SVG are all we need to keep.
     var svgPaths = [];
+    // the colors associated to each of the path in the svg
+    var svgColors = [];
     
     // SVG viewBox 
     var viewBox = [];
-    
+
+    // width (in mm, cm or in) contained in the svg header
     var svgwidth = null;
 
+    var initialMaxDepth = 3;
+    // a storage of the depths associated to colors.
+    var colorDepths = {"#000000" : initialMaxDepth };
     
     // Pull options from the form
     function getFormSelections() {
+        
+        // update color depths
+        for (i = 0; i < $("tbody#tableDepths tr").length; i++) {
+            colorDepths[$("tbody#tableDepths tr#lineDepth" + i + " td span").html().toLowerCase()] = Number($("tbody#tableDepths tr#lineDepth" + i + " td input").val());
+            
+        }
+        
         return {
             objectWidth: $("input#ignoreSVGSize").prop("checked") || svgwidth == null ? Math.abs(Number($("input#objectWidth").val())) : svgwidth,
-            typeDepth: Number($("input#typeDepth").val()),
+            typeDepths: colorDepths,
             wantInvertedType: $("input#invertType").prop("checked"),
             svgWindingIsCW: $("input#reverseWO").prop("checked"),
             wantBasePlate: $("input#wantBasePlate").prop("checked"),
@@ -318,6 +346,51 @@
             squareBase: $("input#squareBase").prop("checked"),
             ignoreDocumentMargins: $("input#ignoreDocumentMargins").prop("checked")
         };
+    }
+    
+    function hexToRgb(hex) {
+        var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : null;
+    }
+
+
+    
+    function getSVGColor(color) {
+        color = color.toLowerCase();
+        if (color in colorDepths) {
+            return colorDepths[color];
+        }
+        else {
+            rgb = hexToRgb(color);
+            val = (3 - (rgb.r + rgb.g + rgb.b) / 256 / 3 * initialMaxDepth).toFixed(2);
+            colorDepths[color] = val;
+            return val;
+        }
+    }
+    function setSVGColors(svgColors) {
+        tableLines = "";
+        
+        list = svgColors.filter((x, i, a) => a.indexOf(x) == i).sort();
+        
+        for(i = 0; i < list.length; i++) {
+            if (list[i] != "") {
+                value = getSVGColor(list[i]);
+                tableLines += "<tr id=\"lineDepth" + i + "\">" + 
+                                "<th scope=\"row\" style=\"vertical-align: middle\">" + i + "</th>" +
+                                "<td style=\"vertical-align: middle\"><span style=\"background: " + list[i] + "; cursor: auto" +
+                                (value > 1.5 ? "; color: #ffffff" : "; color: #000000") +
+                                "\" class=\"btn\">" + list[i] + "</span></td>" +
+                                "<td><input type=\"number\" class=\"form-control\" id=\"typeDepth" + i + "\" value=\"" +
+                                value + "\"></td>" +
+                                "</tr>";
+            }
+        }
+        $("#tableDepths").html(tableLines);
+
     }
 
     function handleFileSelect(evt) {
@@ -387,6 +460,18 @@
                 function(){return $(this).attr("d");}
           ).get();
           
+          svgColors = $("path", document.getElementById('uploadedSVG')).map(
+                function(){ 
+                    var regex = /([\w-]*)\s*:\s*([^;]*)/g;
+                    var match, properties={};
+                    while(match=regex.exec($(this).attr("style"))) properties[match[1].trim()] = match[2].trim();
+                    return "fill" in properties ? properties["fill"] : "#000000";
+                }
+          ).get();
+          
+          // set SVG colors in the UI and in the storage
+          setSVGColors(svgColors);
+          
           // get viewBox
           viewBox = [doc.viewBox.baseVal.x, doc.viewBox.baseVal.y,
                     doc.viewBox.baseVal.width, doc.viewBox.baseVal.height];
@@ -407,7 +492,7 @@
           clearGroup(group);
           
           // Render the SVG for the first time
-          var geom = renderObject(svgPaths, viewBox, scene, group, camera, getFormSelections());
+          var geom = renderObject(svgPaths, viewBox, svgColors, scene, group, camera, getFormSelections());
           
           // give info to the user about the mesh
           displayInfos(geom);
