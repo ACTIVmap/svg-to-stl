@@ -70,8 +70,12 @@ function renderObject(paths, viewBox, svgColors, scene, group, camera, options) 
 
     // Show the wireframe?
     if(options.wantWireFrame) {
-        var wireframe = new THREE.WireframeHelper( finalObj, 0xffffff );
-        group.add( wireframe );
+        var wireframe = new THREE.WireframeGeometry( finalObj.geometry );
+        var lines = new THREE.LineSegments( wireframe );
+        lines.material.depthTest = false;
+        lines.material.opacity = 0.25;
+        lines.material.transparent = true;
+        group.add(lines);
     }
     // Show normals?
     if(options.wantNormals) {
@@ -81,8 +85,9 @@ function renderObject(paths, viewBox, svgColors, scene, group, camera, options) 
     // Show hard edges?
     if(options.wantEdges) {
         // TODO: three.js: THREE.EdgesHelper has been removed. Use THREE.EdgesGeometry instead.
-        var edges = new THREE.EdgesHelper( finalObj, 0xffffff );
-        group.add( edges );
+        var edges = new THREE.EdgesGeometry( finalObj.geometry);
+        var lines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial( { color: 0xffffff } ));
+        group.add(lines);
     }
     
     /// add backgroup a background grid
