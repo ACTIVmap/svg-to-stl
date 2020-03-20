@@ -1,5 +1,8 @@
 # SVG to STL Converter
-Created to enable the 3D printing of plates for a [printing press] from a 2D vector graphic, this tool runs entirely in the local browser. As the name implies, it takes a [scalable vector graphics] \(SVG\) file as input, and produces an ASCII [stereo-lithography] \(STL\) file as output.
+
+Created to create tactile maps for visually impaired people from a simple image, this tool runs entirely in the local browser. As the name implies, it takes a [scalable vector graphics] \(SVG\) file as input, and produces an ASCII [stereo-lithography] \(STL\) file as output.
+
+This tool is part of the tools created by the [ACTIVmap](https://activmap.limos.fr) project.
 
 ### Demo
 You can try the tool [online](https://svg-to-stl.jmfavreau.info).

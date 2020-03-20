@@ -55,6 +55,16 @@ function renderObject(paths, viewBox, svgColors, scene, group, camera, options) 
         finalObj.geometry.mergeVertices();
         
         // TODO: correct here the topology of the mesh
+        // https://github.com/mrdoob/three.js/blob/master/src/geometries/ExtrudeGeometry.js
+        // var vertices = shapePoints.shape;
+        // var holes = shapePoints.holes; puis clockwise,
+        // puis on créé les triangles (on le fait pour chaque shape
+        // var faces = ShapeUtils.triangulateShape( vertices, holes );
+        // puis on merge les vertices
+        // https://threejs.org/docs/#api/en/core/Geometry.mergeVertices
+        // attention, ça supprime les faces. Peut-on ajouter aux objets face leur information d'altitude, pour ne pas perdre l'information ?
+        // au pire, on utilise le material index
+
                         
     }
     // Didn't want a base plate
