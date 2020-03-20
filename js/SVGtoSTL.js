@@ -153,18 +153,84 @@ function getBasePlateObject( options, svgMesh, viewBox ) {
     return basePlateMesh;
 }
 
+
+function THREEShapesToClipperPaths (shapes) {
+    var points = [];
+    for (var j = 0, l = shapes.length; j < l; j++) {
+        var tpoints = shapes[j].extractPoints().shape;
+        var cpoints = [];
+        for(p = 0; p != tpoints.length; p++) {
+            cpoints.push(new ClipperLib.IntPoint(tpoints[p].x, tpoints[p].y));
+        }
+        points.push(cpoints);
+        
+    }
+    return points;
+}
+
+function ClipperPathsToTHREEShapes(shapes) {
+    var points = [];
+    
+    for (var j = 0, l = shapes.length; j < l; j++) {
+        var cpoints = [];
+        for(p = 0; p != shapes[j].length; p++) {
+            cpoints.push(new THREE.Vector2(shapes[j][p].X, shapes[j][p].Y));
+        }
+        // close the shape by adding the first point as last one
+        cpoints.push(new THREE.Vector2(shapes[j][0].X, shapes[j][0].Y));
+        
+        points.push(new THREE.Shape(cpoints));
+    }
+    
+    return points;
+}
+
 // Creates a three.js Mesh object out of SVG paths
 function getExtrudedSvgObject( paths, viewBox, svgColors, options ) {
     
-    extruded = new THREE.Geometry();
-    for (var i = 0; i < paths.length; ++i) {
-        // Turn each SVG path into a three.js shape
-        var path = d3.transformSVGPath( paths[i] );
-        // We may have had the winding order backward.
-        var newShapes = path.toShapes(options.svgWindingIsCW);
+    // first use inverse order to crop shapes according to their visibility
+    var shapes = [];
+    var upperShape = null;
+    if (paths.length > 0) { 
+        for (var i = paths.length - 1; i >= 0; i--) {
+            // Turn each SVG path into a three.js shape
+            var path = d3.transformSVGPath( paths[i] );
+
+            // discretize the path and convert it to clipper format
+            var newShapes = path.toShapes(options.svgWindingIsCW);
+            points = THREEShapesToClipperPaths(newShapes);
+            
+            // if it's the first shape, add it to the upper part
+            if (shapes.length == 0) {
+                upperShape = points;
+                shapes.push(newShapes);
+            }
+            else {
+                // convert the path to clipper format
+                var cpr = new ClipperLib.Clipper();
+                cpr.AddPaths(points, ClipperLib.PolyType.ptSubject, true);
+                
+                cpr.AddPaths(upperShape, ClipperLib.PolyType.ptClip, true);
+                
+                // compute the visible part of this shape
+                difference = new ClipperLib.Paths();
+                cpr.Execute(ClipperLib.ClipType.ctDifference, difference, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+
+                // convert it back to THREE format and add it to the final data structure
+                shapes.unshift(ClipperPathsToTHREEShapes(difference));
+                
+                // compute the new upper part
+                cpr.Execute(ClipperLib.ClipType.ctUnion, upperShape, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
+            }
+            
+        }
         
+    }
+    
+    extruded = new THREE.Geometry();
+    for(i = 0; i != shapes.length; i++) {
         // extrude the shape wrt its depth
-        var extrudedShape = new THREE.ExtrudeGeometry( newShapes, {
+        var extrudedShape = new THREE.ExtrudeGeometry( shapes[i], {
             depth: options.typeDepths[svgColors[i]],
             bevelEnabled: false
         });

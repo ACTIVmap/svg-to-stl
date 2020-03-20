@@ -22,7 +22,6 @@ There are example SVG files in [example-svg/].
 ### Known problems
   - A hole in an SVG path should be defined by points in counter-clockwise order, where the shape outline is defined by points in a clockwise order, or vice versa. Some SVG creation tools don't do this correctly, and shapes render in 3D space as "inside out".
     - You can try the "Reverse Winding Order" option to fix this, but it's possible to have both combinations of winding in the same file, ensuring that some part is always inside out.
-  - A hole that is not a hole, but an additional shape filled with background color will not render as a hole.
   - SVG text elements are not supported. To render text, you need to convert the text to "outlines" or "paths" before saving the SVG file.
 
 ### Requirements
