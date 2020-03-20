@@ -31,7 +31,7 @@ There are example SVG files in [example-svg/].
 This tool requires javascript support, and a browser that can handle a [WebGL] canvas, and the [File API].
 
 ### Version
-0.5
+0.6a
 
 ### Tools Used
 svg-to-stl makes use of a number of other open source projects:
