@@ -241,6 +241,10 @@ function clipPathsUsingVisibility(dpaths, idepths) {
     var shapes = [];
     var depths = [];
     var upperShape = [];
+    
+    ClipperLib.use_lines = false;
+    
+    
     if (dpaths.length > 0) { 
         // use inverse order to crop shapes according to their visibility
         for (var i = dpaths.length - 1; i >= 0; i--) {
@@ -508,13 +512,13 @@ function stickSimilarCurves(paths, distance) {
     // if a point is very close (using the given distance) to an edge of another
     // path, this edge is split, adding a point at this location
     added = [];
-    for(var i = 0; i != paths.length; ++i) {
+    /*for(var i = 0; i != paths.length; ++i) {
         for(var j = 0; j != paths[i].length; ++j) {
             for(var k = 0; k != paths[i][j].length; ++k) {
                 addPointInEdges(paths[i][j][k], i, j, paths, distance);
             }
         }
-    }
+    }*/
     
     return paths;
 }

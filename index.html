@@ -189,7 +189,7 @@
                                 <label class="form-check-label" for="mergeDistance">
                                     Merge distance (used to remove small gaps between elements)
                                 </label>
-                                <input type="number" min="0" pattern="\d+" class="form-control" id="mergeDistance" aria-describedby="objectWidthHelper" value="1">
+                                <input type="number" min="0" pattern="\d+" class="form-control" id="mergeDistance" aria-describedby="objectWidthHelper" value="0">
                                 <small id="objectWidthHelper" class="form-text text-muted">Unit: millimeters.</small>
                             </div>
                             
@@ -223,7 +223,7 @@
                     <h5 class="card-title">Generated mesh</h5>
                     <p class="card-text" id="meshText"></p>
                     <form>
-                        <button type="submit" class="btn btn-primary btn-block" id="download" disabled="disabled">Download mesh</button>
+                        <input type="submit" class="btn btn-primary btn-block" id="download" disabled="disabled" value="Download mesh" />
                     </form>
                 </div>        
             </div>
