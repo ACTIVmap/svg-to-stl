@@ -68,7 +68,7 @@ function renderObject(paths, viewBox, svgColors, scene, group, camera, options) 
 function THREEShapesToClipperPaths(shapes) {
     var result = [];
     for (j = 0; j < shapes.length; j++) {
-        pts = shapes[j].extractPoints(50);
+        pts = shapes[j].extractPoints(40);
         
         // the first element decides for the orientation
         orientation = ClipperLib.Clipper.Orientation(pts.shape);
@@ -394,6 +394,130 @@ function create3DFromShapes(shapes, baseDepth) {
     
     return geometry;
 }
+
+function getSimilarPointsToFirst(point, ii, jj, kk, paths, distance) {
+    var sim = { middle: new ClipperLib.IntPoint(point.X, point.Y), pts: [[ii, jj, kk]] };
+    for(var i = ii; i != paths.length; ++i) {
+        for(var j = (i == ii) ? jj : 0; j != paths[i].length; ++j) {
+            bestID = -1;
+            bestDist = -1;
+            for(var k = ((i == ii) && (j == jj)) ? kk + 1 : 0; k != paths[i][j].length; ++k) {
+                dist = ClipperLib.Clipper.DistanceSqrd(paths[i][j][k], paths[ii][jj][kk]);
+                
+                if ((dist < distance) && ((bestID < 0) || (bestDist > dist))) {
+                    bestID = k;
+                    bestDist = dist;
+                }
+            }
+            if (bestID >= 0) {
+                paths[i][j][bestID].seen = true;
+                sim.pts.push([i, j, bestID]);
+                sim.middle.X += paths[i][j][bestID].X;
+                sim.middle.Y += paths[i][j][bestID].Y;
+            }
+        }
+    }
+    return sim;
+}
+
+
+function getSimilarPoints(paths, distance) {
+    var similarPoints = [];
+    for(var i = 0; i != paths.length; ++i) {
+        for(var j = 0; j != paths[i].length; ++j) {
+            for(var k = 0; k != paths[i][j].length; ++k) {
+                if (!('seen' in paths[i][j][k])) {
+                    sim = getSimilarPointsToFirst(paths[i][j][k], i, j, k, paths, distance);
+                    if (sim.pts.length > 1) {
+                        sim.middle.X /= sim.pts.length;
+                        sim.middle.Y /= sim.pts.length;
+                        similarPoints.push(sim);
+                    }
+                }
+            }       
+        }   
+    }
+    return similarPoints;
+}
+
+// return distance between a point C and a segment [A, B]
+// or -1 if the nearest point along (A, B) line is ouside of the segment [A, B]
+function distancePointSegment(C, A, B, epsilon) {
+    // cf http://www.faqs.org/faqs/graphics/algorithms-faq/
+    // Subject 1.02: How do I find the distance from a point to a line?
+    L2 = ClipperLib.Clipper.DistanceSqrd(A, B);
+    if (L2 <= epsilon)
+        return -1;
+    r = ((C.X - A.X) * (B.X - A.X) + (C.Y - A.Y) * (B.Y - A.Y)) / L2;
+
+    if ((r < 0) || (r > 1))
+        return -1;
+    else {
+        Px = A.X + r * (B.X - A.X);
+        Py = A.Y + r * (B.Y - A.Y);
+        
+        return ClipperLib.Clipper.DistanceSqrd(C, new ClipperLib.IntPoint(Px, Py));
+    }
+}
+
+function addPointInEdges(point, ii, jj, paths, distance) {
+    for(var i = 0; i != paths.length; ++i) {
+        for(var j = 0; j != paths[i].length; ++j) {
+            // only process the path if it does not contain point
+            if ((ii != i) || (jj != j)) {
+                if (paths[i][j].length >= 2) {
+                    bestID = -1;
+                    bestDist = -1;
+                    for(var k = 0; k != paths[i][j].length; ++k) {
+                        current = paths[i][j][k];
+                        next = paths[i][j][(k + 1) % paths[i][j].length];
+                        dist = distancePointSegment(point, current, next, distance / 5);
+                        dc = ClipperLib.Clipper.DistanceSqrd(current, point);
+                        dn = ClipperLib.Clipper.DistanceSqrd(next, point);
+                        if ((dc > distance) && (dn > distance) &&
+                            (dist >= 0.) && (dist < distance) && ((bestID < 0) || (bestDist > dist))) {                        
+                            bestID = k;
+                            bestDist = dist;
+                        }
+                    }
+                    if (bestID >= 0) {
+                        paths[i][j].splice(bestID + 1, 0, new ClipperLib.IntPoint(point.X, point.Y));
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+
+}
+
+function stickSimilarCurves(paths, distance) {
+    // if one vertex is very close (using the given distance) to another vertex
+    // their coordinate becomes the middle of it
+    similarPoints = getSimilarPoints(paths, distance);
+    for(var p = 0; p != similarPoints.length; ++p) {
+        for (var j = 0; j != similarPoints[p].pts.length; ++j) {
+            id = similarPoints[p].pts[j];
+            paths[id[0]][id[1]][id[2]] = similarPoints[p].middle;
+        }
+    }
+        
+    
+    
+    // if a point is very close (using the given distance) to an edge of another
+    // path, this edge is split, adding a point at this location
+    added = [];
+    for(var i = 0; i != paths.length; ++i) {
+        for(var j = 0; j != paths[i].length; ++j) {
+            for(var k = 0; k != paths[i][j].length; ++k) {
+                addPointInEdges(paths[i][j][k], i, j, paths, distance);
+            }
+        }
+    }
+    
+    return paths;
+}
     
 // Creates a three.js Mesh object out of SVG paths
 function getExtrudedSvgObject( paths, viewBox, svgColors, options ) {
@@ -408,6 +532,12 @@ function getExtrudedSvgObject( paths, viewBox, svgColors, options ) {
     
     // center and scale the shapes
     dpaths = rescaleAndCenter(dpaths, options.objectWidth - (options.baseBuffer * 2));
+    
+    
+    // stick similar curves 
+    if (options.mergeDistance > 0) {
+        dpaths = stickSimilarCurves(dpaths, options.mergeDistance);
+    }
     
     // get the depths following the colors of the svg mesh
     depths = [];

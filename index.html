@@ -127,7 +127,7 @@
 
                     </div>
                     <div class="tab-pane my-sm-3" id="advanced-options" role="tabpanel" aria-labelledby="advanced-options-tab">
-                                                <h3>Size</h3>
+                        <h3>Size</h3>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="" id="ignoreSVGSize">
                                 <label class="form-check-label" for="ignoreSVGSize">
@@ -183,6 +183,16 @@
                                     <small id="bufferHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
                                 </div>
                             </div>
+
+                        <h3>Accuracy</h3>
+                            <div class="form-group">
+                                <label class="form-check-label" for="mergeDistance">
+                                    Merge distance (used to remove small gaps between elements)
+                                </label>
+                                <input type="number" min="0" pattern="\d+" class="form-control" id="mergeDistance" aria-describedby="objectWidthHelper" value="1">
+                                <small id="objectWidthHelper" class="form-text text-muted">Unit: millimeters.</small>
+                            </div>
+                            
                         <h3>Fine SVG reading</h3>
                         <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="Invert Type" id="invertType">
@@ -345,7 +355,8 @@
             wantNormals: $("input#showNormals").prop("checked"),
             objectColor: $("input#colorPicker").val(),
             squareBase: $("input#squareBase").prop("checked"),
-            ignoreDocumentMargins: $("input#ignoreDocumentMargins").prop("checked")
+            ignoreDocumentMargins: $("input#ignoreDocumentMargins").prop("checked"),
+            mergeDistance: Math.abs(Number($("input#mergeDistance").val()))
         };
     }
     
