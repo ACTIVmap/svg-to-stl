@@ -244,7 +244,7 @@ class TreeNode {
                     result.push([this.children[i].polygon].concat(holes));
                     
                     for(var j = 0; j < this.children[i].children.length; ++j) {
-                        result.concat(this.children[i].children[j].flatten());
+                        result = result.concat(this.children[i].children[j].flatten());
                     }
             }
             
