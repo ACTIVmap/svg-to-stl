@@ -140,6 +140,122 @@ function toTHREE(points) {
     return cpoints;
 }
 
+function inside(point, vs) {
+    // function from  https://github.com/substack/point-in-polygon (MIT license)
+    // ray-casting algorithm based on
+    // http://www.ecse.rpi.edu/Homepages/wrf/Research/Short_Notes/pnpoly.html
+
+    var x = point[0], y = point[1];
+
+    var inside = false;
+    for (var i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+        var xi = vs[i][0], yi = vs[i][1];
+        var xj = vs[j][0], yj = vs[j][1];
+
+        var intersect = ((yi > y) != (yj > y))
+            && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+
+    return inside;
+};
+
+function clockwise(path) {
+    if (path.length <= 2) {
+            return false;
+    }
+    
+    if ((path[0][0] != path[path.length - 1][0]) ||
+        (path[0][1] != path[path.length - 1][1])) {
+        console.log("ERROR: one path is not defined as a loop", path);
+    }
+    var sum = 0;
+    for(var i = 1; i != path.length; ++i) {
+        var p1 = path[i - 1];
+        var p2 = path[i];
+        sum += (p2[0] - p1[0]) * (p2[1] + p1[1]);
+    }
+    return sum >= 0;
+    
+}
+
+/**
+ * class TreeNode is a hierarchical structure to detect
+ * inclusions between polygons.
+ * It is used to distinguish between contours and holes 
+ * in 2D drawings.
+ * 
+ * */
+class TreeNode {
+        constructor(polygon, children = []) {
+            this.polygon = polygon;
+            this.children = children;
+        }
+
+        addPolygon(polygon) {
+            if (polygon.length == 0) {
+                return;
+            }
+            if (this.children.length == 0) {
+                this.children.push(new TreeNode(polygon, []));
+            }
+            else {
+                var found = false;
+                for(var i = 0; i < this.children.length; ++i) {
+                    var point = polygon[0];
+                    // if the given polygon is contained in one
+                    // child, we add the polygon to this child
+                    if (inside(point, this.children[i].polygon)) {
+                        this.children[i].addPolygon(polygon);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    var insideChildren = this.children.filter(v => inside(v.polygon[0], polygon));
+                    if (insideChildren.length > 0) {
+                        this.children = this.children.filter(v => !inside(v.polygon[0], polygon));
+                        this.children.push(new TreeNode(polygon, insideChildren)); 
+                    }
+                    else {
+                        // the polygon is not contained in any child
+                        // thus it is a brother
+                        this.children.push(new TreeNode(polygon, []));
+                    }
+                    
+                }
+            }
+        }
+        
+        flatten() {
+            var result = [];
+            
+            for(var i = 0; i < this.children.length; ++i) {
+                    var holes = [];
+                    for(var j = 0; j < this.children[i].children.length; ++j) {
+                        if (!clockwise(this.children[i].children[j].polygon)) {
+                            this.children[i].children[j].polygon.reverse();
+                        }
+                        holes.push(this.children[i].children[j].polygon);
+                    }
+                    if (clockwise(this.children[i].polygon)) {
+                        this.children[i].polygon.reverse();
+                    }
+                    result.push([this.children[i].polygon].concat(holes));
+                    
+                    for(var j = 0; j < this.children[i].children.length; ++j) {
+                        result.concat(this.children[i].children[j].flatten());
+                    }
+            }
+            
+            
+            return result;
+        }
+};
+
+TreeNode.root = function() {
+        return new TreeNode(null, []);
+}
 
 /** 
  ** 
@@ -237,6 +353,7 @@ class SVG3DScene {
     // discretize paths and convert it to the desired format
     constructor(paths, depths, steps, svgWindingIsCW) {
         this.paths = [];
+        this.depths = [];
         if (paths.length > 0) { 
             for (var i = 0; i < paths.length; i++) {
                 // Turn each SVG path into a three.js shape (that can be composed of a list of shapes)
@@ -245,15 +362,18 @@ class SVG3DScene {
                 // extract shapes associated to the svg path,
                 // discretize them, and convert them to a basic list format
                 var shapes = path.toShapes(svgWindingIsCW);
-                this.addNewShapes(shapes, steps);
+                var nbAdded = this.addNewShapes(shapes, steps);
+                for(var j = 0; j != nbAdded; ++j) {
+                    this.depths.push(depths[i]);
+                }
             }
         }
-        this.depths = depths;
     }
 
     // at this step, the orientation of the shape
     // and the structure (contour + holes) are not verified
     addNewShapes(shapes, steps) {
+        var nb = 0;
         for (var j = 0; j < shapes.length; j++) {
             var pts = shapes[j].extractPoints(steps);
             var paths = [pts.shape].concat(pts.holes);
@@ -264,7 +384,9 @@ class SVG3DScene {
                 }
             }
             this.paths.push(paths);
+            ++nb;
         }
+        return nb;
     }
     
     getBoundsOfShapes() {
@@ -422,9 +544,12 @@ class SVG3DScene {
     // A polygon is defined by a list of rings, the first one being the contours,
     // and the following the holes
     splitIntoShapes(paths) {
-        // TODO
         
-        return [paths];
+        var tree = TreeNode.root();
+        for(var i = 0; i < paths.length; ++i) {
+                tree.addPolygon(paths[i]);
+        }
+        return tree.flatten();
     }
     
     // merge paths with similar depth
@@ -479,7 +604,7 @@ class SVG3DScene {
                 }
                 else {
                     // we have to add the new shapes to the structure
-                    newShapes = martinez.diff(curPaths, upperShape);
+                    newShapes = martinez.diff(this.splitIntoShapes(curPaths), upperShape);
                     
                     
                     // the new upperShape is the union
