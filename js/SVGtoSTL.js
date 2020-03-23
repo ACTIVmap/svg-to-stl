@@ -63,527 +63,586 @@ function renderObject(paths, viewBox, svgColors, scene, group, camera, options) 
 };
 
 
-// The orientation of the shapes is defined by the first one.
-// the resulting structure is a list of paths
-function THREEShapesToClipperPaths(shapes) {
-    var result = [];
-    for (j = 0; j < shapes.length; j++) {
-        pts = shapes[j].extractPoints(40);
-        
-        // the first element decides for the orientation
-        orientation = ClipperLib.Clipper.Orientation(pts.shape);
-        tpoints = [pts.shape].concat(pts.holes);
-
-        for(p = 0; p != tpoints.length; p++) {
-            cp = [];
-            for(q = 0; q != tpoints[p].length; q++) {
-                cp.push(new ClipperLib.IntPoint(tpoints[p][q].x, tpoints[p][q].y));
-            }
-            if (!orientation)
-                cp.reverse();
-            result.push(cp);
-        }
-        
-        
-    }
-    return result;
-}
-
-function ClipperPolyNodeToTHREEShapes(polynode) {
-    result = [];
-    
-    if (polynode != null) {
-        // build the hole list
-        var children = polynode.Childs();
-        var pathHoles = [];
-        for(i = 0; i != children.length; ++i) {
-            pathHoles.push(children[i].Contour());
-        }
-
-        // add this first shape to the result list
-        result.push(ClipperPathsToTHREEShapes([polynode.Contour()].concat(pathHoles)));
-        
-        // then add the other elements
-        for(i = 0; i != children.length; ++i) {
-            newShapes = children[i].Childs();
-            if (newShapes.length != 0) {
-                    for(j = 0; j != newShapes.length; ++j) {
-                        result.push(ClipperPolyNodeToTHREEShapes(newShapes[j]));
-                    }
-            }
-        }
-    }
-    
-    return result;
-}
+// Creates a three.js Mesh object out of SVG paths
+function getExtrudedSvgObject(paths, viewBox, svgColors, options) {
     
     
-function ClipperPathsToTHREEShapes(shapes) {
-    for (var j = 0, l = shapes.length; j < l; j++) {
-        if ((j == 0) && !ClipperLib.Clipper.Orientation(shapes[j]))
-            console.log("ERROR: A first shape is not correctly oriented");
-        if ((j != 0) && ClipperLib.Clipper.Orientation(shapes[j]))
-            console.log("ERROR: A hole shape is not correctly oriented");
-        
-        var cpoints = [];
-        for(p = 0; p != shapes[j].length; p++) {
-            cpoints.push(new THREE.Vector2(shapes[j][p].X, shapes[j][p].Y));
-        }
-        // close the shape by adding the first point as last one
-        cpoints.push(new THREE.Vector2(shapes[j][0].X, shapes[j][0].Y));
-        
-        // the first path is the main path
-        if (j == 0)
-            points = new THREE.Shape(cpoints);
-        else {
-            // the others are the holes
-            points.holes.push(new THREE.Path(cpoints));
-        }
-        
-    }
-    return points;
-}
-
-// discretize paths and convert it to clipper.js format
-function discretizeShapes(paths, options) {
-    
-
-    dpaths = [];
-    if (paths.length > 0) { 
-        for (var i = 0; i < paths.length; i++) {
-            // Turn each SVG path into a three.js shape (that can be composed of a list of shapes)
-            var path = d3.transformSVGPath( paths[i] );
-            
-
-            // extract shapes associated to the svg path
-            // discretize them, and convert tem to clipper format
-            var shapes = path.toShapes(options.svgWindingIsCW);
-            dpaths.push(THREEShapesToClipperPaths(shapes));
-        }
-    }
-    return dpaths;
-    
-}
-
-
-function getBoundsOfShapes(paths) {
-    
-    var result = new ClipperLib.JS.BoundsOfPaths(paths[0]);
-    
-    for(i = 1; i < paths.length; ++i) {
-        b = new ClipperLib.JS.BoundsOfPaths(paths[i]);
-        if (b.left < result.left) result.left = b.left;
-        if (b.top < result.top) result.top = b.top;
-        if (b.right > result.right) result.right = b.right;
-        if (b.bottom > result.bottom) result.bottom = b.bottom;
-    }
-    return result;
-}
-
-function addBasePlate(paths, viewBox, options) {
-    // compute the effective bounding box, defined or by document margin, or by shapes
-    if (options.ignoreDocumentMargins) {
-        bbox = getBoundsOfShapes(dpaths);
-    }
-    else {
-        bbox = new ClipperLib.IntRect(viewBox[0], viewBox[1], viewBox[2], viewBox[3]);
-    }
-    
-    
-    // add offset if required
-    if (options.baseBuffer > 0) {
-        buffer = options.baseBuffer / options.objectWidth * (bbox.right - bbox.left);
-        bbox.left -= buffer;
-        bbox.top -= buffer;
-        bbox.right += buffer;
-        bbox.bottom += buffer;
-    }
-    
-    // create the final shape
-    if(options.basePlateShape==="Rectangular") {
-        // first turn it into a square if required
-        if (options.squareBase) {
-            width = bbox.right - bbox.left;
-            height = bbox.bottom - bbox.top;
-            middle = new IntPoint((bbox.left + bbox.right) / 2, (bbox.bottom + bbox.top) / 2);
-            halfSize = (width > height ? width : height) / 2;
-            bbox.left = middle.X - halfSize;
-            bbox.right = middle.X + halfSize;
-            bbox.top = middle.Y - halfSize;
-            bbox.bottom = middle.Y + halfSize;
-        }
-        // then create the path
-        plate = [ new ClipperLib.IntPoint(bbox.left, bbox.top),
-                  new ClipperLib.IntPoint(bbox.right, bbox.top),
-                  new ClipperLib.IntPoint(bbox.right, bbox.bottom),
-                  new ClipperLib.IntPoint(bbox.left, bbox.bottom)];
-        
-    }
-    // Otherwise a circle
-    else {
-        middle = new IntPoint((bbox.left + bbox.right) / 2, (bbox.bottom + bbox.top) / 2);
-        corner = new IntPoint(bbox.left, bbox.top);
-        radius = ClipperLib.DistanceSqrd(middle, corner);
-        plate = [];
-        for(i = 0; i != 128; i++) {
-            plate.push(new ClipperLib.IntPoint(middle.X + radius * Math.cos(i / 128 * ClipperLib.PI2), 
-                                               middle.Y + radius * Math.sin(i / 128 * ClipperLib.PI2)));
-        }
-    }
-    
-    paths.unshift([plate]);
-    
-    return paths;
-}
-
-// clip path using visibility, and convert it to THREE format
-function clipPathsUsingVisibility(dpaths, idepths) {
-    var shapes = [];
+    // get the depths following the colors of the svg mesh
     var depths = [];
-    var upperShape = [];
-    
-    ClipperLib.use_lines = false;
-    
-    
-    if (dpaths.length > 0) { 
-        // use inverse order to crop shapes according to their visibility
-        for (var i = dpaths.length - 1; i >= 0; i--) {
-            points = dpaths[i];
-            
-            // convert the path to clipper format and prepare for boolean operations
-            var cpr = new ClipperLib.Clipper();
-            cpr.AddPaths(points, ClipperLib.PolyType.ptSubject, true);
-            
-            // if an upper shape already exists, we add it
-            if (shapes.length != 0) {
-                cpr.AddPaths(upperShape, ClipperLib.PolyType.ptClip, true);
-            }
-            
-            // compute the visible part of this shape
-            difference = new ClipperLib.PolyTree();
-            cpr.Execute(ClipperLib.ClipType.ctDifference, difference, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
-
-            // then process the PolyNode to generate THREE shapes (possibly with holes)
-            
-            // add it to the final data structure
-            var polynodes = difference.Childs();
-            for(k = 0; k != polynodes.length; ++k) {
-                nshapes = ClipperPolyNodeToTHREEShapes(polynodes[k]);
-                shapes = nshapes.concat(shapes);
-                for(j = 0; j < nshapes.length; j++) {
-                    depths.unshift(idepths[i]);
-                }
-            }
-            
-            
-            // compute the new upper part
-            cpr.Execute(ClipperLib.ClipType.ctUnion, upperShape, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
-            
-        }
-        
-    }
-    return {shapes: shapes, depths: depths};
-}
-    
-
-// center and rescale to match the desired width
-function rescaleAndCenter(dpaths, width) {
-    bbox = getBoundsOfShapes(dpaths);
-    ratio = width / (bbox.right - bbox.left);
-    center = new ClipperLib.IntPoint((bbox.left + bbox.right) / 2, (bbox.bottom + bbox.top) / 2);
-    
-    for(i = 0; i < dpaths.length; ++i) {
-            for(j = 0; j < dpaths[i].length; ++j) {
-                for(k = 0; k < dpaths[i][j].length; ++k) {
-                    dpaths[i][j][k] = new ClipperLib.IntPoint((dpaths[i][j][k].X - center.X) * ratio, (dpaths[i][j][k].Y - center.Y) * ratio);
-                }
-            }
-    }
-    
-    return dpaths;
-    
-}
-
-// given a list of THREE shapes, it fills it with triangles
-// and associate to each triangle the desired depth
-function fillShapes(shapes, depths) {
-    
-    fShapes = [];
-    
-    for(i = 0; i != shapes.length; ++i) {
-        pts = shapes[i].extractPoints();
-        var vertices = pts.shape;
-        var holes = pts.holes;
-
-        var reverse = !THREE.ShapeUtils.isClockWise(vertices);
-        if (reverse) {
-            vertices = vertices.reverse();
-            for (h = 0, hl = holes.length; h < hl; h ++) {
-                ahole = holes[h];
-                if (THREE.ShapeUtils.isClockWise(ahole)) {
-                    holes[h] = ahole.reverse();
-                }
-            }
-        }
-        
-        faces = THREE.ShapeUtils.triangulateShape(vertices, holes);
-        
-        finalvertices = vertices;
-        for (j = 0; j <holes.length; j++) {
-            finalvertices = finalvertices.concat(holes[j]);
-        }
-        
-        fShapes.push({points: finalvertices, faces: faces, depth: depths[i]});
-    }
-    
-    return fShapes;
-    
-}
-
-// return the minimum depth value (or 0)
-function minDepth(shapes) {
-    d = 0;
-    
-    for(i = 0; i != shapes.length; ++i)
-        if (shapes.depth < d)
-            d = shapes.depth;
-    
-    return d;
-}
-
-function create3DFromShapes(shapes, baseDepth) {
-    // create a new geometry
-    var geometry = new THREE.Geometry();
-    
-    underFaceZ = minDepth(shapes) - baseDepth;
-    
-    
-    for(i = 0; i != shapes.length; ++i) {
-        
-        for (j = 0; j != shapes[i].points.length; ++j) {
-            // add all the vertices of the upper part
-            geometry.vertices.push(new THREE.Vector3(shapes[i].points[j].x, shapes[i].points[j].y, shapes[i].depth));
-        }
-    }
-    idPointsUp = geometry.vertices.length;
-    
-    for(i = 0; i != shapes.length; ++i) {
-        for (j = 0; j != shapes[i].points.length; ++j) {
-            // and triangles of the lower part
-            geometry.vertices.push(new THREE.Vector3(shapes[i].points[j].x, shapes[i].points[j].y, underFaceZ));
-        }
+    for(var i = 0; i < svgColors.length; ++i) {
+        depths.push(options.typeDepths[svgColors[i]]);
     }
 
-    idPoints = 0;
+    // load svg paths into a scene (discretize the curves, to only manipulate polygons)
+    var scene = new SVG3DScene(paths, depths, 50, options.svgWindingIsCW);
+    
+    // if we wanted a base plate, let's add a supplementary path
+    if(options.wantBasePlate) {
+        scene.addBasePlate(viewBox, options.ignoreDocumentMargins, options.baseBuffer, options.objectWidth, options.basePlateShape);
+    }
 
-    for(i = 0; i != shapes.length; ++i) {
-
-        // add all triangles of the upper part
-        for(j = 0; j != shapes[i].faces.length; ++j) {
-            geometry.faces.push(new THREE.Face3(shapes[i].faces[j][0] + idPoints, shapes[i].faces[j][1] + idPoints, shapes[i].faces[j][2] + idPoints));
-        }
-
-        // add all triangles of the under part (reverse order)
-        for(j = 0; j != shapes[i].faces.length; ++j) {
-            geometry.faces.push(new THREE.Face3(shapes[i].faces[j][2] + idPointsUp + idPoints, 
-                                                shapes[i].faces[j][1] + idPointsUp + idPoints, 
-                                                shapes[i].faces[j][0] + idPointsUp + idPoints));
-        }
-        
-        // next points will be added at the end of the mesh and will require a shift
-        idPoints += shapes[i].points.length;
+    // center and scale the shapes
+    scene.rescaleAndCenter(options.objectWidth - (options.baseBuffer * 2));
+    
+    // stick similar curves if required
+    if (options.mergeDistance > 0) {
+        scene.stickSimilarCurves(options.mergeDistance);
     }
     
-    // TODO: add side triangles
+    // finally, generate 3D shapes with an extrude process
+    return scene.create3DShape(options.baseDepth, options.wantInvertedType, options.material);
+
+
+};
+
+
+/** 
+ ** 
+ ** Utils
+ **  
+ **  
+ **/
+
+function distanceSqrd(a, b) {
+    var c = a[0] - b[0];
+    var d = a[1] - b[1];
+    return c * c + d * d
+};
     
-    return geometry;
-}
-
-function getSimilarPointsToFirst(point, ii, jj, kk, paths, distance) {
-    var sim = { middle: new ClipperLib.IntPoint(point.X, point.Y), pts: [[ii, jj, kk]] };
-    for(var i = ii; i != paths.length; ++i) {
-        for(var j = (i == ii) ? jj : 0; j != paths[i].length; ++j) {
-            bestID = -1;
-            bestDist = -1;
-            for(var k = ((i == ii) && (j == jj)) ? kk + 1 : 0; k != paths[i][j].length; ++k) {
-                dist = ClipperLib.Clipper.DistanceSqrd(paths[i][j][k], paths[ii][jj][kk]);
-                
-                if ((dist < distance) && ((bestID < 0) || (bestDist > dist))) {
-                    bestID = k;
-                    bestDist = dist;
-                }
-            }
-            if (bestID >= 0) {
-                paths[i][j][bestID].seen = true;
-                sim.pts.push([i, j, bestID]);
-                sim.middle.X += paths[i][j][bestID].X;
-                sim.middle.Y += paths[i][j][bestID].Y;
-            }
-        }
-    }
-    return sim;
-}
-
-
-function getSimilarPoints(paths, distance) {
-    var similarPoints = [];
-    for(var i = 0; i != paths.length; ++i) {
-        for(var j = 0; j != paths[i].length; ++j) {
-            for(var k = 0; k != paths[i][j].length; ++k) {
-                if (!('seen' in paths[i][j][k])) {
-                    sim = getSimilarPointsToFirst(paths[i][j][k], i, j, k, paths, distance);
-                    if (sim.pts.length > 1) {
-                        sim.middle.X /= sim.pts.length;
-                        sim.middle.Y /= sim.pts.length;
-                        similarPoints.push(sim);
-                    }
-                }
-            }       
-        }   
-    }
-    return similarPoints;
-}
 
 // return distance between a point C and a segment [A, B]
 // or -1 if the nearest point along (A, B) line is ouside of the segment [A, B]
-function distancePointSegment(C, A, B, epsilon) {
+function distanceSqrdPointSegment(C, A, B, epsilon) {
     // cf http://www.faqs.org/faqs/graphics/algorithms-faq/
     // Subject 1.02: How do I find the distance from a point to a line?
-    L2 = ClipperLib.Clipper.DistanceSqrd(A, B);
+    var L2 = distanceSqrd(A, B);
     if (L2 <= epsilon)
         return -1;
-    r = ((C.X - A.X) * (B.X - A.X) + (C.Y - A.Y) * (B.Y - A.Y)) / L2;
+    var r = ((C[0] - A[0]) * (B[0] - A[0]) + (C[1] - A[1]) * (B[1] - A[1])) / L2;
 
     if ((r < 0) || (r > 1))
         return -1;
     else {
-        Px = A.X + r * (B.X - A.X);
-        Py = A.Y + r * (B.Y - A.Y);
+        var Px = A[0] + r * (B[0] - A[0]);
+        var Py = A[1] + r * (B[1] - A[1]);
         
-        return ClipperLib.Clipper.DistanceSqrd(C, new ClipperLib.IntPoint(Px, Py));
+        return distanceSqrd(C, [Px, Py]);
     }
 }
 
-function addPointInEdges(point, ii, jj, paths, distance) {
-    for(var i = 0; i != paths.length; ++i) {
-        for(var j = 0; j != paths[i].length; ++j) {
-            // only process the path if it does not contain point
-            if ((ii != i) || (jj != j)) {
-                if (paths[i][j].length >= 2) {
-                    bestID = -1;
-                    bestDist = -1;
-                    for(var k = 0; k != paths[i][j].length; ++k) {
-                        current = paths[i][j][k];
-                        next = paths[i][j][(k + 1) % paths[i][j].length];
-                        dist = distancePointSegment(point, current, next, distance / 5);
-                        dc = ClipperLib.Clipper.DistanceSqrd(current, point);
-                        dn = ClipperLib.Clipper.DistanceSqrd(next, point);
-                        if ((dc > distance) && (dn > distance) &&
-                            (dist >= 0.) && (dist < distance) && ((bestID < 0) || (bestDist > dist))) {                        
-                            bestID = k;
-                            bestDist = dist;
+// given a list of points, it creates the corresponding THREE.js structure.
+function toTHREE(points) {
+
+    var cpoints = [];
+    for(var p = 0; p != points.length; p++) {
+        cpoints.push(new THREE.Vector2(points[p][0], points[p][1]));
+    }
+    return cpoints;
+}
+
+
+/** 
+ ** 
+ ** class Box: a 2D bounding box 
+ **  
+ **  
+ **/
+class Box {
+    constructor(left, right, top, bottom, valid = true) {
+        this.left = left;
+        this.right = right;
+        this.top = top;
+        this.bottom = bottom;
+        this.valid = valid;
+    }
+        
+};
+
+Box.prototype.add = function(box) {
+    if (box.valid) {
+        if (box.left < this.left) this.left = box.left;
+        if (box.top < this.top) this.top = box.top;
+        if (box.right > this.right) this.right = box.right;
+        if (box.bottom > this.bottom) this.bottom = box.bottom;
+    }
+}
+
+Box.prototype.addPoint = function(point) {
+    if (this.valid) {
+        if (point[0] < this.left) this.left = point[0];
+        if (point[1] < this.top) this.top = point[1];
+        if (point[0] > this.right) this.right = point[0];
+        if (point[1] > this.bottom) this.bottom = point[1];
+    }
+}
+
+Box.prototype.center = function() {
+    return [(this.left + this.right) / 2, (this.bottom + this.top) / 2];
+}
+
+Box.invalid = function() {
+    return new Box(0, 0, 0, 0, false);
+}
+
+Box.fromPaths = function(paths) {
+    if (paths.length == 0)
+        return Box.invalid();
+    
+    var result = Box.fromPath(paths[0]);
+    
+    for(var i = 1; i < paths.length; ++i) {
+        result.add(Box.fromPath(paths[i]));
+    }
+    return result;
+
+};
+
+
+Box.fromShapes = function(shapes) {
+    if (shapes.length == 0)
+        return Box.invalid();
+    
+    var result = Box.fromPaths(shapes[0]);
+    
+    for(var i = 1; i < shapes.length; ++i) {
+        result.add(Box.fromPaths(shapes[i]));
+    }
+    return result;
+
+};
+
+
+Box.fromPath = function(path) {
+    if (path.length == 0)
+        return Box.invalid();
+    var result = new Box(path[0][0], path[0][1], path[0][0], path[0][1]);
+    
+    for(var i = 1; i != path.length; ++i) {
+        result.addPoint(path[i]);
+    }
+    return result;
+};
+
+
+
+
+/** 
+ ** 
+ ** class SVG3DScene: a class to convert SVG paths to 3D shape
+ **  
+ **  
+ **/
+class SVG3DScene {
+    
+    // discretize paths and convert it to the desired format
+    constructor(paths, depths, steps, svgWindingIsCW) {
+        this.paths = [];
+        if (paths.length > 0) { 
+            for (var i = 0; i < paths.length; i++) {
+                // Turn each SVG path into a three.js shape (that can be composed of a list of shapes)
+                var path = d3.transformSVGPath(paths[i]);
+                
+                // extract shapes associated to the svg path,
+                // discretize them, and convert them to a basic list format
+                var shapes = path.toShapes(svgWindingIsCW);
+                this.addNewShapes(shapes, steps);
+            }
+        }
+        this.depths = depths;
+    }
+
+    // at this step, the orientation of the shape
+    // and the structure (contour + holes) are not verified
+    addNewShapes(shapes, steps) {
+        for (var j = 0; j < shapes.length; j++) {
+            var pts = shapes[j].extractPoints(steps);
+            var paths = [pts.shape].concat(pts.holes);
+                        
+            for(var a = 0; a != paths.length; ++a) {
+                for(var b = 0; b != paths[a].length; ++b) {
+                    paths[a][b] = [paths[a][b].x, paths[a][b].y];
+                }
+            }
+            this.paths.push(paths);
+        }
+    }
+    
+    getBoundsOfShapes() {
+        return Box.fromShapes(this.paths);
+    }
+    
+
+
+    addBasePlate(viewBox, ignoreDocumentMargins, baseBuffer, objectWidth, basePlateShape) {
+        // compute the effective bounding box, defined or by document margin, or by shapes
+        var bbox;
+        var plate;
+        
+        if (ignoreDocumentMargins) {
+            bbox = this.getBoundsOfShapes();
+        }
+        else {
+            bbox = new Box(viewBox[0], viewBox[2], viewBox[1], viewBox[3]);
+        }
+        
+        // add offset if required
+        if (baseBuffer > 0) {
+            var buffer = baseBuffer / objectWidth * (bbox.right - bbox.left);
+            bbox.left -= buffer;
+            bbox.top -= buffer;
+            bbox.right += buffer;
+            bbox.bottom += buffer;
+        }
+        
+        // create the final shape
+        if(basePlateShape==="Rectangular" || basePlateShape==="Squared") {
+            // first turn it into a square if required
+            if (basePlateShape==="Squared") {
+                var width = bbox.right - bbox.left;
+                var height = bbox.bottom - bbox.top;
+                var middle = [(bbox.left + bbox.right) / 2, (bbox.bottom + bbox.top) / 2];
+                var halfSize = (width > height ? width : height) / 2;
+                bbox.left = middle[0] - halfSize;
+                bbox.right = middle[0] + halfSize;
+                bbox.top = middle[1] - halfSize;
+                bbox.bottom = middle[1] + halfSize;
+            }
+            // then create the path
+            plate = [[bbox.left, bbox.bottom],
+                    [bbox.right, bbox.bottom],
+                    [bbox.right, bbox.top],                    
+                    [bbox.left, bbox.top]
+                    ];
+            
+        }
+        // Otherwise a circle
+        else {
+            var middle = bbox.center();
+            var corner = [bbox.left, bbox.top];
+            var radius = distanceSqrd(middle, corner);
+            plate = [];
+            var nbPoints = 128;
+            for(var i = 0; i != nbPoints; i++) {
+                plate.push([middle[0] + radius * Math.cos(i / nbPoints * 6.283185307179586), 
+                            middle[1] + radius * Math.sin(i / nbPoints * 6.283185307179586)]);
+            }
+        }
+        // close the shape
+        plate.push(plate[0]);
+        
+        this.paths.unshift([plate]);
+        
+        // add the depth of the plate
+        this.depths.unshift(0.0);
+    }
+
+    // center and rescale to match the desired width
+    rescaleAndCenter(width) {
+        var bbox = this.getBoundsOfShapes();
+        var ratio = width / (bbox.right - bbox.left);
+        var center = bbox.center();
+        
+        for(var i = 0; i < this.paths.length; ++i) {
+            for(var j = 0; j < this.paths[i].length; ++j) {
+                for(var k = 0; k < this.paths[i][j].length; ++k) {
+                    this.paths[i][j][k] = [(this.paths[i][j][k][0] - center[0]) * ratio, 
+                                           (this.paths[i][j][k][1] - center[1]) * ratio];
+                }
+            }
+        }
+        
+    }
+
+    getSimilarPointsToFirst(point, ii, jj, kk, distance) {
+        var sim = { middle: point, pts: [[ii, jj, kk]] };
+        for(var i = ii; i != this.paths.length; ++i) {
+            for(var j = (i == ii) ? jj : 0; j != this.paths[i].length; ++j) {
+                if ((i != ii) || (j != jj)) {
+                    var bestID = -1;
+                    var bestDist = -1;
+                    for(var k = ((i == ii) && (j == jj)) ? kk + 1 : 0; k != this.paths[i][j].length; ++k) {
+                        if (!(this.paths[i][j][k].length == 3)) {
+                            var dist = distanceSqrd(this.paths[i][j][k], this.paths[ii][jj][kk]);
+                            if ((dist < distance) && ((bestID < 0) || (bestDist > dist))) {
+                                bestID = k;
+                                bestDist = dist;
+                            }
                         }
                     }
                     if (bestID >= 0) {
-                        paths[i][j].splice(bestID + 1, 0, new ClipperLib.IntPoint(point.X, point.Y));
-                        break;
+                        this.paths[i][j][bestID][2] = true;
+                        sim.pts.push([i, j, bestID]);
+                        sim.middle[0] += this.paths[i][j][bestID][0];
+                        sim.middle[1] += this.paths[i][j][bestID][1];
                     }
                 }
             }
         }
+        return sim;
     }
 
 
-}
-
-function stickSimilarCurves(paths, distance) {
-    // if one vertex is very close (using the given distance) to another vertex
-    // their coordinate becomes the middle of it
-    similarPoints = getSimilarPoints(paths, distance);
-    for(var p = 0; p != similarPoints.length; ++p) {
-        for (var j = 0; j != similarPoints[p].pts.length; ++j) {
-            id = similarPoints[p].pts[j];
-            paths[id[0]][id[1]][id[2]] = similarPoints[p].middle;
+    getSimilarPoints(distance) {
+        var similarPoints = [];
+        for(var i = 0; i != this.paths.length; ++i) {
+            for(var j = 0; j != this.paths[i].length; ++j) {
+                for(var k = 0; k != this.paths[i][j].length; ++k) {
+                    if (!(this.paths[i][j][k].length == 3)) { // if not seen before
+                        var sim = this.getSimilarPointsToFirst(this.paths[i][j][k], i, j, k, distance);
+                        if (sim.pts.length > 1) {
+                            sim.middle[0] /= sim.pts.length;
+                            sim.middle[1] /= sim.pts.length;
+                            similarPoints.push(sim);
+                        }
+                    }
+                }       
+            }   
         }
+        return similarPoints;
     }
+    
+    
         
-    
-    
-    // if a point is very close (using the given distance) to an edge of another
-    // path, this edge is split, adding a point at this location
-    added = [];
-    /*for(var i = 0; i != paths.length; ++i) {
-        for(var j = 0; j != paths[i].length; ++j) {
-            for(var k = 0; k != paths[i][j].length; ++k) {
-                addPointInEdges(paths[i][j][k], i, j, paths, distance);
+        
+    stickSimilarCurves(distance) {
+        // if one vertex is very close (using the given distance) to another vertex
+        // their coordinate becomes the middle of it
+        var similarPoints = this.getSimilarPoints(distance);
+        for(var p = 0; p != similarPoints.length; ++p) {
+            for (var j = 0; j != similarPoints[p].pts.length; ++j) {
+                var id = similarPoints[p].pts[j];
+                this.paths[id[0]][id[1]][id[2]] = similarPoints[p].middle;
+                
             }
         }
-    }*/
-    
-    return paths;
-}
-    
-// Creates a three.js Mesh object out of SVG paths
-function getExtrudedSvgObject( paths, viewBox, svgColors, options ) {
-    
-    // discretize paths and convert it to clipper.js format
-    dpaths = discretizeShapes(paths, options);
-    
-    // If we wanted a base plate, let's add a supplementary path
-    if(options.wantBasePlate) {
-        dpaths = addBasePlate(dpaths, viewBox, options);
     }
     
-    // center and scale the shapes
-    dpaths = rescaleAndCenter(dpaths, options.objectWidth - (options.baseBuffer * 2));
-    
-    
-    // stick similar curves 
-    if (options.mergeDistance > 0) {
-        dpaths = stickSimilarCurves(dpaths, options.mergeDistance);
+    // given a list of paths, it split it into a list of polygons.
+    // following geojson specifications: https://geojson.org/geojson-spec.html#id7
+    // A polygon is defined by a list of rings, the first one being the contours,
+    // and the following the holes
+    splitIntoShapes(paths) {
+        // TODO
+        
+        return [paths];
     }
     
-    // get the depths following the colors of the svg mesh
-    depths = [];
-    for(i = 0; i < svgColors.length; ++i) {
-        depths.push(options.typeDepths[svgColors[i]]);
-    }
-    // and the default depth for the plate if it exists
-    if(options.wantBasePlate) {
-        depths.unshift(0.0);
+    // merge paths with similar depth
+    // since some of them can overlap
+    mergePathsSameDepth() {
+        var shapes = [];
+        var depthsShapes = [];
+        
+        // for each depth
+        var uDepths = this.depths.filter((v, i, a) => a.indexOf(v) === i);
+        for(i = 0; i < uDepths.length; ++i) {
+            // iteratively merge all paths at this depth using union
+            var union = [];
+            for(var j = 0; j < this.paths.length; j++) {
+                if (this.depths[j] == uDepths[i]) {
+                    if (union.length == 0)
+                        union = [this.paths[j]];
+                    else
+                        union = martinez.union(union, this.paths[j]);
+                }
+            }
+            
+            // add the result in shapes
+            for(var k = 0; k != union.length; ++k) {
+                shapes.unshift(union[k]);
+                depthsShapes.unshift(uDepths[i]);
+            }
+        }
+        
+        // set back the result 
+        this.paths = shapes;
+        this.depths = depthsShapes;
+        
     }
     
-    // clip paths using visibility, and convert it to THREE.js format
-    shapesAndDepths = clipPathsUsingVisibility(dpaths, depths);
-    shapes = shapesAndDepths.shapes;
-    depths = shapesAndDepths.depths;
+    // clip path using visibility
+    clipPathsUsingVisibility() {
+        var shapes = [];
+        var depthsShapes = [];
+        var upperShape = [];
+                
+        
+        if (this.paths.length > 0) { 
+            // use inverse order to crop shapes according to their visibility
+            for (var i = this.paths.length - 1; i >= 0; i--) {
+                var curPaths = this.paths[i];
+                var newShapes;
+                
+                if (upperShape.length == 0) {
+                        upperShape = this.splitIntoShapes(curPaths);
+                        newShapes = upperShape;
+                }
+                else {
+                    // we have to add the new shapes to the structure
+                    newShapes = martinez.diff(curPaths, upperShape);
+                    
+                    
+                    // the new upperShape is the union
+                    upperShape = martinez.union(curPaths, upperShape);
+                }
+
+                // add it to the final data structure
+                for(var k = 0; k != newShapes.length; ++k) {
+                    shapes.unshift(newShapes[k]);
+                    depthsShapes.unshift(this.depths[i]);
+                }
+                
+            }
+            
+        }
+        
+        this.paths = shapes;
+        this.depths = depthsShapes;
+        
+    }
+    
+    // fill paths it with triangles
+    // and associate to each triangle the desired depth
+    fillShapes() {
+        
+        var fShapes = [];
+        
+        for(var i = 0; i != this.paths.length; ++i) {
+            var vertices = toTHREE(this.paths[i][0]);
+            var holes = this.paths[i].slice(1);
+            for(var j = 0; j != holes.length; ++j) {
+                holes[j] = toTHREE(holes[j]);
+            }
+
+            
+            var reverse = !THREE.ShapeUtils.isClockWise(vertices);
+            if (reverse) {
+                vertices = vertices.reverse();
+                for (var h = 0, hl = holes.length; h < hl; h ++) {
+                    var ahole = holes[h];
+                    if (THREE.ShapeUtils.isClockWise(ahole)) {
+                        holes[h] = ahole.reverse();
+                    }
+                }
+            }
+            
+            var faces = THREE.ShapeUtils.triangulateShape(vertices, holes);
+            
+            var finalvertices = vertices;
+            for (var j = 0; j <holes.length; j++) {
+                finalvertices = finalvertices.concat(holes[j]);
+            }
+            
+            fShapes.push({points: finalvertices, faces: faces, depth: this.depths[i]});
+        }
+        
+        this.shapes = fShapes;
+        
+    }
 
     
-    // fill shapes
-    shapes = fillShapes(shapes, depths);
     
-    // create 3D geometry from shapes
-    extruded = create3DFromShapes(shapes, options.baseDepth);
-    
-    
-    // Use negative scaling to invert the image
-    // flip the image to change from SVG orientation to Three.js orientation
-    if(!options.wantInvertedType) {
-        var invertTransform = new THREE.Matrix4().makeScale( -1, 1, 1 );
-        extruded.applyMatrix4( invertTransform );
+    // return the minimum depth value (or 0)
+    minShapeDepth() {
+        var d = 0;
+        
+        for(var i = 0; i != this.shapes.length; ++i)
+            if (this.shapes.depth < d)
+                d = this.shapes.depth;
+        
+        return d;
     }
-      
-    // Rotate 180 deg
-    // Different coordinate systems for SVG and three.js
-    var rotateTransform = new THREE.Matrix4().makeRotationZ( Math.PI );
-    extruded.applyMatrix4(rotateTransform);
+
+
+
     
-    // create the mesh corresponding to this geometry
-    var mesh = new THREE.Mesh(extruded, options.material);
+    create3DFromShapes(baseDepth) {
+        // create a new geometry
+        var geometry = new THREE.Geometry();
+        
+        var underFaceZ = this.minShapeDepth() - baseDepth;
+        
+        
+        for(var i = 0; i != this.shapes.length; ++i) {
+            
+            for (j = 0; j != this.shapes[i].points.length; ++j) {
+                // add all the vertices of the upper part
+                geometry.vertices.push(new THREE.Vector3(this.shapes[i].points[j].x, this.shapes[i].points[j].y, this.shapes[i].depth));
+            }
+        }
+        var idPointsUp = geometry.vertices.length;
+        
+        for(var i = 0; i != this.shapes.length; ++i) {
+            for (j = 0; j != this.shapes[i].points.length; ++j) {
+                // and triangles of the lower part
+                geometry.vertices.push(new THREE.Vector3(this.shapes[i].points[j].x, this.shapes[i].points[j].y, underFaceZ));
+            }
+        }
+
+        var idPoints = 0;
+
+        for(var i = 0; i != this.shapes.length; ++i) {
+
+            // add all triangles of the upper part
+            for(var j = 0; j != this.shapes[i].faces.length; ++j) {
+                geometry.faces.push(new THREE.Face3(this.shapes[i].faces[j][0] + idPoints, 
+                                                    this.shapes[i].faces[j][1] + idPoints, 
+                                                    this.shapes[i].faces[j][2] + idPoints));
+            }
+
+            // add all triangles of the under part (reverse order)
+            for(var j = 0; j != this.shapes[i].faces.length; ++j) {
+                geometry.faces.push(new THREE.Face3(this.shapes[i].faces[j][2] + idPointsUp + idPoints, 
+                                                    this.shapes[i].faces[j][1] + idPointsUp + idPoints, 
+                                                    this.shapes[i].faces[j][0] + idPointsUp + idPoints));
+            }
+            
+            // next points will be added at the end of the mesh and will require a shift
+            idPoints += this.shapes[i].points.length;
+        }
+        
+        // TODO: add side triangles
+        
+        return geometry;
+    }
+
     
-    // So that these attributes of the mesh are populated for later
-    mesh.geometry.computeBoundingBox();
-    mesh.geometry.computeBoundingSphere();
-    return mesh;
-};
+    create3DShape(baseDepth, wantInvertedType, material) {
+        // remove not visible regions
+        this.clipPathsUsingVisibility();
+        
+        // merge regions with similar depth
+        this.mergePathsSameDepth();
+        
+        // fill shapes
+        this.fillShapes();
+        
+        // create 3D geometry from shapes
+        var extruded = this.create3DFromShapes(baseDepth);
+        
+        
+        // Use negative scaling to invert the image
+        // flip the image to change from SVG orientation to Three.js orientation
+        if(!wantInvertedType) {
+            var invertTransform = new THREE.Matrix4().makeScale( -1, 1, 1 );
+            extruded.applyMatrix4( invertTransform );
+        }
+        
+        // Rotate 180 deg
+        // Different coordinate systems for SVG and three.js
+        var rotateTransform = new THREE.Matrix4().makeRotationZ( Math.PI );
+        extruded.applyMatrix4(rotateTransform);
+        
+        // create the mesh corresponding to this geometry
+        var mesh = new THREE.Mesh(extruded, material);
+        
+        // So that these attributes of the mesh are populated for later
+        mesh.geometry.computeBoundingBox();
+        mesh.geometry.computeBoundingSphere();
+        return mesh;
+    }
+
+}
+
+
 
