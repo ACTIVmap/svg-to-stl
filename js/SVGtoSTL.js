@@ -613,8 +613,11 @@ class SVG3DScene {
 
                 // add it to the final data structure
                 for(var k = 0; k != newShapes.length; ++k) {
-                    shapes.unshift(newShapes[k]);
-                    depthsShapes.unshift(this.depths[i]);
+                    var split = this.splitIntoShapes(newShapes[k]);
+                    for(var j = 0; j < split.length; ++j) {
+                        shapes.unshift(split[j]);
+                        depthsShapes.unshift(this.depths[i]);
+                    }
                 }
                 
             }
