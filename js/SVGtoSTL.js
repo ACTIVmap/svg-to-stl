@@ -687,53 +687,72 @@ class SVG3DScene {
     }
 
 
-
-    
-    create3DFromShapes(baseDepth) {
-        // create a new geometry
-        var geometry = new THREE.Geometry();
-        
-        var underFaceZ = this.minShapeDepth() - baseDepth;
-        
-        
+    createUpperPart(geometry) {
+        // add all the vertices of the upper part
         for(var i = 0; i != this.shapes.length; ++i) {
-            
-            for (j = 0; j != this.shapes[i].points.length; ++j) {
-                // add all the vertices of the upper part
+            for (var j = 0; j != this.shapes[i].points.length; ++j) {
                 geometry.vertices.push(new THREE.Vector3(this.shapes[i].points[j].x, this.shapes[i].points[j].y, this.shapes[i].depth));
             }
         }
-        var idPointsUp = geometry.vertices.length;
-        
-        for(var i = 0; i != this.shapes.length; ++i) {
-            for (j = 0; j != this.shapes[i].points.length; ++j) {
-                // and triangles of the lower part
-                geometry.vertices.push(new THREE.Vector3(this.shapes[i].points[j].x, this.shapes[i].points[j].y, underFaceZ));
-            }
-        }
-
+     
+        // add all triangles of the upper part
         var idPoints = 0;
-
         for(var i = 0; i != this.shapes.length; ++i) {
-
-            // add all triangles of the upper part
             for(var j = 0; j != this.shapes[i].faces.length; ++j) {
                 geometry.faces.push(new THREE.Face3(this.shapes[i].faces[j][0] + idPoints, 
                                                     this.shapes[i].faces[j][1] + idPoints, 
                                                     this.shapes[i].faces[j][2] + idPoints));
             }
+            // next points will be added at the end of the mesh and will require a shift
+            idPoints += this.shapes[i].points.length;
+        }
+        return geometry;
+    }
+    
+    createLowerPart(geometry, baseDepth) {
+        // TODO: improve this reconstruction when the shape has a plate.
+        // In this case, the lower part can be defined only by the largest
+        // border.
 
+        var underFaceZ = this.minShapeDepth() - baseDepth;
+        
+        // get the number of points in the upper part
+        var idPointsAfterUp = geometry.vertices.length;
+        
+        // add all the vertices of the lower part        
+        for(var i = 0; i != this.shapes.length; ++i) {
+            for (var j = 0; j != this.shapes[i].points.length; ++j) {
+                geometry.vertices.push(new THREE.Vector3(this.shapes[i].points[j].x, this.shapes[i].points[j].y, underFaceZ));
+            }
+        }
+
+
+        
+        // add all triangles of the lower part
+        var idPoints = 0;
+        for(var i = 0; i != this.shapes.length; ++i) {
             // add all triangles of the under part (reverse order)
             for(var j = 0; j != this.shapes[i].faces.length; ++j) {
-                geometry.faces.push(new THREE.Face3(this.shapes[i].faces[j][2] + idPointsUp + idPoints, 
-                                                    this.shapes[i].faces[j][1] + idPointsUp + idPoints, 
-                                                    this.shapes[i].faces[j][0] + idPointsUp + idPoints));
+                geometry.faces.push(new THREE.Face3(this.shapes[i].faces[j][2] + idPointsAfterUp + idPoints, 
+                                                    this.shapes[i].faces[j][1] + idPointsAfterUp + idPoints, 
+                                                    this.shapes[i].faces[j][0] + idPointsAfterUp + idPoints));
             }
             
             // next points will be added at the end of the mesh and will require a shift
             idPoints += this.shapes[i].points.length;
         }
         
+        return geometry;
+    }
+    
+    create3DFromShapes(baseDepth) {
+        
+        // create a new geometry
+        var geometry = new THREE.Geometry();
+        
+        geometry = this.createUpperPart(geometry);
+        
+        geometry = this.createLowerPart(geometry, baseDepth);
         // TODO: add side triangles
         
         return geometry;
@@ -758,7 +777,7 @@ class SVG3DScene {
         // flip the image to change from SVG orientation to Three.js orientation
         if(!wantInvertedType) {
             var invertTransform = new THREE.Matrix4().makeScale( -1, 1, 1 );
-            extruded.applyMatrix4( invertTransform );
+            extruded.applyMatrix4(invertTransform);
         }
         
         // Rotate 180 deg
