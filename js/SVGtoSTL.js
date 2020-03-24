@@ -21,7 +21,7 @@ function renderObject(paths, viewBox, svgColors, scene, group, camera, options) 
           side:THREE.DoubleSide});
 
     // Create an extrusion from the SVG path shapes
-    var finalObj = getExtrudedSvgObject( paths, viewBox, svgColors, options);
+    var finalObj = getExtrudedSvgObject(paths, viewBox, svgColors, options);
 
 
     // Add the merged geometry to the scene
@@ -42,7 +42,7 @@ function renderObject(paths, viewBox, svgColors, scene, group, camera, options) 
     // Show normals?
     if(options.wantNormals) {
         var normals = new THREE.FaceNormalsHelper(finalObj, 2, 0x000000, 1);
-        group.add( normals );
+        group.add(normals);
     }
     // Show hard edges?
     if(options.wantEdges) {
@@ -84,7 +84,7 @@ function getExtrudedSvgObject(paths, viewBox, svgColors, options) {
 
     // center and scale the shapes
     scene.rescaleAndCenter(options.objectWidth - (options.baseBuffer * 2));
-    
+        
     // stick similar curves if required
     if (options.mergeDistance > 0) {
         scene.stickSimilarCurves(options.mergeDistance);
@@ -103,6 +103,11 @@ function getExtrudedSvgObject(paths, viewBox, svgColors, options) {
  **  
  **  
  **/
+
+function truncator(x, precision) {    
+    var npow = Math.pow(10, precision);
+    return Math.round(x * npow) / npow;
+}
 
 function distanceSqrd(a, b) {
     var c = a[0] - b[0];
@@ -379,6 +384,8 @@ class SVG3DScene {
     
     // discretize paths and convert it to the desired format
     constructor(paths, depths, steps, precision, svgWindingIsCW) {
+        this.silhouetteShapes = null;
+        this.precision = precision;
         this.paths = [];
         this.depths = [];
         if (paths.length > 0) { 
@@ -389,17 +396,51 @@ class SVG3DScene {
                 // extract shapes associated to the svg path,
                 // discretize them, and convert them to a basic list format
                 var shapes = path.toShapes(svgWindingIsCW);
-                var nbAdded = this.addNewShapes(shapes, steps, precision);
+                var nbAdded = this.addNewShapes(shapes, steps);
                 for(var j = 0; j != nbAdded; ++j) {
                     this.depths.push(depths[i]);
                 }
             }
         }
+        
+    }
+    
+    adjustPathsToPrecision(paths) {
+        if (this.precision >= 0) {
+            for(var i = 0; i < paths.length; ++i) {
+                for(var j = 0; j < paths[i].length; ++j) {
+                    for(var k = 0; k < paths[i][j].length; ++k) {
+                        paths[i][j][k] = [truncator(paths[i][j][k][0], this.precision), 
+                                               truncator(paths[i][j][k][1], this.precision)];
+                    }
+                }
+            }
+        }
+    }
+    removeConsecutiveDoubles(paths) {
+        for(var i = 0; i < paths.length; ++i) {
+            for(var j = 0; j < paths[i].length; ++j) {
+                paths[i][j] = paths[i][j].filter(function(item, pos, arr){  return pos === 0 || 
+                                                                                item[0] !== arr[pos - 1][0] ||
+                                                                                item[1] !== arr[pos - 1][1]; });
+            }
+        }
+        
+    }
+    adjustToPrecision() {
+        if (this.paths != null) {
+                this.adjustPathsToPrecision(this.paths);
+                this.removeConsecutiveDoubles(this.paths);
+        }
+        if (this.silhouette != null) {
+                this.adjustPathsToPrecision(this.silhouette);
+                this.removeConsecutiveDoubles(this.silhouette);
+        }
     }
 
     // at this step, the orientation of the shape
     // and the structure (contour + holes) are not verified
-    addNewShapes(shapes, steps, precision) {
+    addNewShapes(shapes, steps) {
         var nb = 0;
         for (var j = 0; j < shapes.length; j++) {
             var pts = shapes[j].extractPoints(steps);
@@ -407,11 +448,11 @@ class SVG3DScene {
                         
             for(var a = 0; a != paths.length; ++a) {
                 for(var b = 0; b != paths[a].length; ++b) {
-                    if (precision >= 0)
-                        paths[a][b] = [paths[a][b].x.toFixed(2), paths[a][b].y.toFixed(2)];
+                    if (this.precision >= 0)
+                        paths[a][b] = [paths[a][b].x.toFixed(this.precision), paths[a][b].y.toFixed(this.precision)];
                     else
                         paths[a][b] = [paths[a][b].x, paths[a][b].y];
-                }
+               }
             }
             this.paths.push(paths);
             ++nb;
@@ -502,6 +543,8 @@ class SVG3DScene {
                 }
             }
         }
+        
+        this.adjustToPrecision();
         
     }
 
@@ -602,6 +645,7 @@ class SVG3DScene {
         this.paths = shapes;
         this.depths = depthsShapes;
         
+        this.adjustToPrecision();
     }
     
     // clip path using visibility
@@ -646,7 +690,8 @@ class SVG3DScene {
         
         this.paths = shapes;
         this.depths = depthsShapes;
-        
+     
+        this.adjustToPrecision();        
     }
     
     // fill paths it with triangles
@@ -718,8 +763,8 @@ class SVG3DScene {
         for(var i = 0; i != this.shapes.length; ++i) {
             for(var j = 0; j != this.shapes[i].faces.length; ++j) {
                 geometry.faces.push(new THREE.Face3(this.shapes[i].faces[j][0] + idPoints, 
-                                                    this.shapes[i].faces[j][1] + idPoints, 
-                                                    this.shapes[i].faces[j][2] + idPoints));
+                                                    this.shapes[i].faces[j][2] + idPoints, 
+                                                    this.shapes[i].faces[j][1] + idPoints));
             }
             // next points will be added at the end of the mesh and will require a shift
             idPoints += this.shapes[i].points.length;
@@ -728,9 +773,6 @@ class SVG3DScene {
     }
     
     createLowerPart(geometry, baseDepth) {
-        // TODO: improve this reconstruction when the shape has a plate.
-        // In this case, the lower part can be defined only by the largest
-        // border.
 
         var underFaceZ = this.minShapeDepth() - baseDepth;
         
@@ -752,9 +794,9 @@ class SVG3DScene {
         for(var i = 0; i != this.silhouetteShapes.length; ++i) {
             // add all triangles of the under part (reverse order)
             for(var j = 0; j != this.silhouetteShapes[i].faces.length; ++j) {
-                geometry.faces.push(new THREE.Face3(this.silhouetteShapes[i].faces[j][2] + idPointsAfterUp + idPoints, 
+                geometry.faces.push(new THREE.Face3(this.silhouetteShapes[i].faces[j][0] + idPointsAfterUp + idPoints, 
                                                     this.silhouetteShapes[i].faces[j][1] + idPointsAfterUp + idPoints, 
-                                                    this.silhouetteShapes[i].faces[j][0] + idPointsAfterUp + idPoints));
+                                                    this.silhouetteShapes[i].faces[j][2] + idPointsAfterUp + idPoints));
             }
             
             // next points will be added at the end of the mesh and will require a shift
@@ -762,6 +804,152 @@ class SVG3DScene {
         }
         
         return geometry;
+    }
+
+    getVertex(triangle, id) {
+        if (id == 0) return triangle.a;
+        else if (id == 1) return triangle.b;
+        else return triangle.c;
+    }
+    getBoundaryEdges(geometry) {
+        var result = [];
+        
+        // build a list of all the edges, but remove an
+        // edge if the same edge (other direction) is already
+        // in the list
+        for(var i = 0; i != geometry.faces.length; ++i) {
+            for(var j = 0; j != 3; ++j) {
+                var v1 = this.getVertex(geometry.faces[i], j);
+                var v2 = this.getVertex(geometry.faces[i], (j + 1) % 3);
+                var len = result.length;
+                result = result.filter(x => !((x[0] == v2) && (x[1] == v1)));
+                if (len == result.length)
+                    result.push([v1, v2]);
+            }
+        }
+                
+        return result;
+    }
+    
+    getPointsSame2DLocationPt(geometry, pointID) {
+        var point = geometry.vertices[pointID];
+        var result = [];
+        for(var i = 0; i != geometry.vertices.length; ++i) {
+            var p = geometry.vertices[i];
+            if ((i != pointID) && (p.x == point.x) && (p.y == point.y))
+                result.push(i);
+        }
+        return result;
+    }
+    
+    getPointsSame2DLocation(geometry, bEdges) {
+        var result = {};
+        
+        for(var i = 0; i != bEdges.length; ++i) {
+            if (!(bEdges[i][0] in result)) {
+                result[bEdges[i][0]] = this.getPointsSame2DLocationPt(geometry, bEdges[i][0]);
+            }
+            if (!(bEdges[i][1] in result)) {
+                result[bEdges[i][1]] = this.getPointsSame2DLocationPt(geometry, bEdges[i][1]);
+            }
+        }
+        
+        return result;
+    }
+    
+    // get the list of all edges whitch vertices are
+    // at the same (x, y) location as the ones of the given edge
+    getOtherEdges(edge, bEdges, sPoints) {
+        var pts1 = sPoints[edge[0]];
+        var pts2 = sPoints[edge[1]];
+        return bEdges.filter(e => (((e[0] != edge[0]) || (e[1] != edge[1])) && 
+                                    (((pts1.indexOf(e[0]) != -1) && (pts2.indexOf(e[1]) != -1)) ||
+                                     ((pts1.indexOf(e[1]) != -1) && (pts2.indexOf(e[0]) != -1)))));
+    }
+    
+    isUpperEdge(edge, bEdges, sPoints, geometry) {
+        var others = this.getOtherEdges(edge, bEdges, sPoints);
+        var z = geometry.vertices[edge[0]].z;
+        for(var i = 0; i < others.length; ++i) {
+            if (z < geometry.vertices[others[i][0]].z)
+                return false;
+        }
+        return true;
+    }
+    
+    // given sides=[s1, s2] a pair of vertex id lists,
+    // sort them using z coordinate, and keep only vertices
+    // between the first and last edges.
+    filterVerticesBetweenEdges(sides, bEdges, geometry) {
+        
+        // sort vertices along Z axis on each line
+        sides[0].sort(function(a, b) { return geometry.vertices[a].z - geometry.vertices[b].z;});
+        sides[1].sort(function(a, b) { return geometry.vertices[a].z - geometry.vertices[b].z;});
+
+        // get the list of edges within this subpart of the mesh
+        var lEdges = bEdges.filter(e => (((sides[0].indexOf(e[0]) != -1) && (sides[1].indexOf(e[1]) != -1)) ||
+                                         ((sides[1].indexOf(e[0]) != -1) && (sides[0].indexOf(e[1]) != -1))));
+        
+        
+        // get vertices in these edges
+        var eVerts = [].concat.apply([], lEdges);
+
+        // remove top and bottom vertices not involved in an edge
+        while(eVerts.indexOf(sides[0][0]) == -1) { sides[0].shift(); }
+        while(eVerts.indexOf(sides[1][0]) == -1) { sides[1].shift(); }
+        
+        while(eVerts.indexOf(sides[0][sides[0].length - 1]) == -1) { sides[0].pop(); }
+        while(eVerts.indexOf(sides[1][sides[1].length - 1]) == -1) { sides[1].pop(); }
+
+        return sides;
+    }
+    
+    addSideFromEdge(edge, sPoints, geometry, bEdges) {
+        
+        var sides = [sPoints[edge[0]], sPoints[edge[1]]];
+        sides = [[edge[0]].concat(sides[0]), [edge[1]].concat(sides[1])];
+        sides = this.filterVerticesBetweenEdges(sides, bEdges, geometry);
+
+        if (((sides[0].length == 1) && (sides[1].length == 1)) ||
+            (sides[0].length == 0) || (sides[1].length == 0)) {
+            console.log("WARNING: empty side on edge", edge);
+            return geometry;
+        }
+        
+        if (sides[0].length > 1) {
+            for(var i = 1; i < sides[0].length; ++i) {
+                geometry.faces.push(new THREE.Face3(sides[0][i], sides[0][i - 1], sides[1][0]));
+            }
+        }
+        if (sides[1].length > 1) {
+            for(var i = 1; i < sides[1].length; ++i) {
+                geometry.faces.push(new THREE.Face3(sides[1][i], sides[0][sides[0].length - 1], sides[1][i - 1]));
+            }
+        }
+
+        return geometry;
+    }
+    
+    addSideFromEdges(geometry, bEdges, sPoints) {
+        for(var i = 0; i < bEdges.length; ++i) {
+            if (this.isUpperEdge(bEdges[i], bEdges, sPoints, geometry)) {
+                geometry = this.addSideFromEdge(bEdges[i], sPoints, geometry, bEdges);
+            }
+        }
+        return geometry;
+    }
+    
+    addSides(geometry) {
+        // identify all the boundary edges in the geometry
+        var bEdges = this.getBoundaryEdges(geometry);
+        
+        // find all the points of the boundary with same (x, y) location
+        var sPoints = this.getPointsSame2DLocation(geometry, bEdges);
+        
+        // for each boundary edge, build the vertical wall creating all the required 
+        // triangles
+        return this.addSideFromEdges(geometry, bEdges, sPoints);
+        
     }
     
     create3DFromShapes(baseDepth) {
@@ -772,7 +960,8 @@ class SVG3DScene {
         geometry = this.createUpperPart(geometry);
         
         geometry = this.createLowerPart(geometry, baseDepth);
-        // TODO: add side triangles
+        
+        geometry = this.addSides(geometry);
         
         return geometry;
     }
@@ -804,6 +993,8 @@ class SVG3DScene {
         // Different coordinate systems for SVG and three.js
         var rotateTransform = new THREE.Matrix4().makeRotationZ( Math.PI );
         extruded.applyMatrix4(rotateTransform);
+
+        extruded.computeFaceNormals();
         
         // create the mesh corresponding to this geometry
         var mesh = new THREE.Mesh(extruded, material);
