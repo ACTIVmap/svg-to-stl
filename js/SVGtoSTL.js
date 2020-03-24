@@ -133,7 +133,6 @@ function distanceSqrdPointSegment(C, A, B, epsilon) {
 
 // given a list of points, it creates the corresponding THREE.js structure.
 function toTHREE(points) {
-
     var cpoints = [];
     for(var p = 0; p != points.length; p++) {
         cpoints.push(new THREE.Vector2(points[p][0], points[p][1]));
@@ -253,6 +252,33 @@ class TreeNode {
             return result;
         }
 };
+
+// given a list of paths (or a list of list of paths), it split it into a list of polygons.
+// following geojson specifications: https://geojson.org/geojson-spec.html#id7
+// A polygon is defined by a list of rings, the first one being the contours,
+// and the following the holes
+TreeNode.splitIntoShapes = function(paths) {
+        
+        if (paths.length == 0)
+            return paths;
+        
+        var tree = TreeNode.root();
+        
+        if (typeof paths[0][0][0] === 'number') {
+            for(var i = 0; i < paths.length; ++i) {
+                    tree.addPolygon(paths[i]);
+            }
+        }
+        else {
+            for(var i = 0; i < paths.length; ++i) {
+                for(var j = 0; j < paths[i].length; ++j) {
+                    tree.addPolygon(paths[i][j]);
+                }
+            }
+            
+        }
+        return tree.flatten();
+    }
 
 TreeNode.root = function() {
         return new TreeNode(null, []);
@@ -381,7 +407,6 @@ class SVG3DScene {
                         
             for(var a = 0; a != paths.length; ++a) {
                 for(var b = 0; b != paths[a].length; ++b) {
-                    console.log(precision);
                     if (precision >= 0)
                         paths[a][b] = [paths[a][b].x.toFixed(2), paths[a][b].y.toFixed(2)];
                     else
@@ -544,18 +569,7 @@ class SVG3DScene {
         }
     }
     
-    // given a list of paths, it split it into a list of polygons.
-    // following geojson specifications: https://geojson.org/geojson-spec.html#id7
-    // A polygon is defined by a list of rings, the first one being the contours,
-    // and the following the holes
-    splitIntoShapes(paths) {
-        
-        var tree = TreeNode.root();
-        for(var i = 0; i < paths.length; ++i) {
-                tree.addPolygon(paths[i]);
-        }
-        return tree.flatten();
-    }
+
     
     // merge paths with similar depth
     // since some of them can overlap
@@ -594,7 +608,7 @@ class SVG3DScene {
     clipPathsUsingVisibility() {
         var shapes = [];
         var depthsShapes = [];
-        var upperShape = [];
+        this.silhouette = [];
                 
         
         if (this.paths.length > 0) { 
@@ -602,23 +616,24 @@ class SVG3DScene {
             for (var i = this.paths.length - 1; i >= 0; i--) {
                 var curPaths = this.paths[i];
                 var newShapes;
-                
-                if (upperShape.length == 0) {
-                        upperShape = this.splitIntoShapes(curPaths);
-                        newShapes = upperShape;
+                                
+                if (this.silhouette.length == 0) {
+                        this.silhouette = TreeNode.splitIntoShapes(curPaths);
+                        newShapes = this.silhouette;
                 }
                 else {
                     // we have to add the new shapes to the structure
-                    newShapes = martinez.diff(this.splitIntoShapes(curPaths), upperShape);
+                    newShapes = martinez.diff(TreeNode.splitIntoShapes(curPaths), this.silhouette);
                     
-                    
-                    // the new upperShape is the union
-                    upperShape = martinez.union(curPaths, upperShape);
+                    // the new this.silhouette is the union
+                    this.silhouette = martinez.union(curPaths, this.silhouette);
+                    this.silhouette = TreeNode.splitIntoShapes(this.silhouette);
                 }
 
                 // add it to the final data structure
                 for(var k = 0; k != newShapes.length; ++k) {
-                    var split = this.splitIntoShapes(newShapes[k]);
+                    var split = TreeNode.splitIntoShapes(newShapes[k]);
+
                     for(var j = 0; j < split.length; ++j) {
                         shapes.unshift(split[j]);
                         depthsShapes.unshift(this.depths[i]);
@@ -636,13 +651,13 @@ class SVG3DScene {
     
     // fill paths it with triangles
     // and associate to each triangle the desired depth
-    fillShapes() {
+    fillShapes(paths, depths = -1) {
         
         var fShapes = [];
         
-        for(var i = 0; i != this.paths.length; ++i) {
-            var vertices = toTHREE(this.paths[i][0]);
-            var holes = this.paths[i].slice(1);
+        for(var i = 0; i != paths.length; ++i) {
+            var vertices = toTHREE(paths[i][0]);
+            var holes = paths[i].slice(1);
             for(var j = 0; j != holes.length; ++j) {
                 holes[j] = toTHREE(holes[j]);
             }
@@ -666,10 +681,13 @@ class SVG3DScene {
                 finalvertices = finalvertices.concat(holes[j]);
             }
             
-            fShapes.push({points: finalvertices, faces: faces, depth: this.depths[i]});
+            if (depths == -1)
+                fShapes.push({points: finalvertices, faces: faces});
+            else
+                fShapes.push({points: finalvertices, faces: faces, depth: depths[i]});
         }
         
-        this.shapes = fShapes;
+        return fShapes;
         
     }
 
@@ -720,9 +738,10 @@ class SVG3DScene {
         var idPointsAfterUp = geometry.vertices.length;
         
         // add all the vertices of the lower part        
-        for(var i = 0; i != this.shapes.length; ++i) {
-            for (var j = 0; j != this.shapes[i].points.length; ++j) {
-                geometry.vertices.push(new THREE.Vector3(this.shapes[i].points[j].x, this.shapes[i].points[j].y, underFaceZ));
+        for(var i = 0; i != this.silhouetteShapes.length; ++i) {
+            for (var j = 0; j != this.silhouetteShapes[i].points.length; ++j) {
+                geometry.vertices.push(new THREE.Vector3(this.silhouetteShapes[i].points[j].x, 
+                                                         this.silhouetteShapes[i].points[j].y, underFaceZ));
             }
         }
 
@@ -730,16 +749,16 @@ class SVG3DScene {
         
         // add all triangles of the lower part
         var idPoints = 0;
-        for(var i = 0; i != this.shapes.length; ++i) {
+        for(var i = 0; i != this.silhouetteShapes.length; ++i) {
             // add all triangles of the under part (reverse order)
-            for(var j = 0; j != this.shapes[i].faces.length; ++j) {
-                geometry.faces.push(new THREE.Face3(this.shapes[i].faces[j][2] + idPointsAfterUp + idPoints, 
-                                                    this.shapes[i].faces[j][1] + idPointsAfterUp + idPoints, 
-                                                    this.shapes[i].faces[j][0] + idPointsAfterUp + idPoints));
+            for(var j = 0; j != this.silhouetteShapes[i].faces.length; ++j) {
+                geometry.faces.push(new THREE.Face3(this.silhouetteShapes[i].faces[j][2] + idPointsAfterUp + idPoints, 
+                                                    this.silhouetteShapes[i].faces[j][1] + idPointsAfterUp + idPoints, 
+                                                    this.silhouetteShapes[i].faces[j][0] + idPointsAfterUp + idPoints));
             }
             
             // next points will be added at the end of the mesh and will require a shift
-            idPoints += this.shapes[i].points.length;
+            idPoints += this.silhouetteShapes[i].points.length;
         }
         
         return geometry;
@@ -767,7 +786,8 @@ class SVG3DScene {
         this.mergePathsSameDepth();
         
         // fill shapes
-        this.fillShapes();
+        this.shapes = this.fillShapes(this.paths, this.depths);
+        this.silhouetteShapes = this.fillShapes(this.silhouette);
         
         // create 3D geometry from shapes
         var extruded = this.create3DFromShapes(baseDepth);
