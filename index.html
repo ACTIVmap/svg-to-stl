@@ -180,17 +180,30 @@
                                 </div>
                                 <div class="form-group col">
                                     <label for="buffer">Buffer</label>
-                                    <input type="number" min="0.5" pattern="\d+" class="form-control" id="buffer" aria-describedby="bufferHelper" value="1">
+                                    <input type="number" min="0" pattern="\d+" class="form-control" id="buffer" aria-describedby="bufferHelper" value="0">
                                     <small id="bufferHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
                                 </div>
                             </div>
 
                         <h3>Accuracy</h3>
+                                <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="Discretization" id="discretization" checked>
+                                <label class="form-check-label" for="discretization">
+                                    Discretization (force points into a discrete grid)
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-check-label" for="precision">
+                                    Precision (number of decimals when distance is expressed in millimeters)
+                                </label>
+                                <input type="number" step="1" min="0" pattern="\d+" class="form-control" id="precision" aria-describedby="objectWidthHelper" value="2">
+                            </div>
+
                             <div class="form-group">
                                 <label class="form-check-label" for="mergeDistance">
                                     Merge distance (used to remove small gaps between elements)
                                 </label>
-                                <input type="number" min="0" pattern="\d+" class="form-control" id="mergeDistance" aria-describedby="objectWidthHelper" value="0.1">
+                                <input type="number" min="0" pattern="\d+" class="form-control" id="mergeDistance" aria-describedby="objectWidthHelper" value="0">
                                 <small id="objectWidthHelper" class="form-text text-muted">Unit: millimeters.</small>
                             </div>
                             
@@ -243,6 +256,10 @@
         // enable value selection
         $('#ignoreSVGSize').on('change', function() {
             $('#objectWidth').prop('disabled', !$('#ignoreSVGSize').is(":checked"));
+        });
+
+        $('#discretization').on('change', function() {
+            $('#precision').prop('disabled', !$('#discretization').is(":checked"));
         });
 
     
@@ -356,7 +373,9 @@
             wantNormals: $("input#showNormals").prop("checked"),
             objectColor: $("input#colorPicker").val(),
             ignoreDocumentMargins: $("input#ignoreDocumentMargins").prop("checked"),
-            mergeDistance: Math.abs(Number($("input#mergeDistance").val()))
+            mergeDistance: Math.abs(Number($("input#mergeDistance").val())),
+            discretization: $("input#discretization").prop("checked"),
+            precision:Math.abs(Number($("input#precision").val()))
         };
     }
     

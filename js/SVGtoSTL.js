@@ -74,7 +74,8 @@ function getExtrudedSvgObject(paths, viewBox, svgColors, options) {
     }
 
     // load svg paths into a scene (discretize the curves, to only manipulate polygons)
-    var scene = new SVG3DScene(paths, depths, 50, options.svgWindingIsCW);
+    var scene = new SVG3DScene(paths, depths, 50, options.discretization ? options.precision : -1,
+                               options.svgWindingIsCW);
     
     // if we wanted a base plate, let's add a supplementary path
     if(options.wantBasePlate) {
@@ -351,7 +352,7 @@ Box.fromPath = function(path) {
 class SVG3DScene {
     
     // discretize paths and convert it to the desired format
-    constructor(paths, depths, steps, svgWindingIsCW) {
+    constructor(paths, depths, steps, precision, svgWindingIsCW) {
         this.paths = [];
         this.depths = [];
         if (paths.length > 0) { 
@@ -362,7 +363,7 @@ class SVG3DScene {
                 // extract shapes associated to the svg path,
                 // discretize them, and convert them to a basic list format
                 var shapes = path.toShapes(svgWindingIsCW);
-                var nbAdded = this.addNewShapes(shapes, steps);
+                var nbAdded = this.addNewShapes(shapes, steps, precision);
                 for(var j = 0; j != nbAdded; ++j) {
                     this.depths.push(depths[i]);
                 }
@@ -372,7 +373,7 @@ class SVG3DScene {
 
     // at this step, the orientation of the shape
     // and the structure (contour + holes) are not verified
-    addNewShapes(shapes, steps) {
+    addNewShapes(shapes, steps, precision) {
         var nb = 0;
         for (var j = 0; j < shapes.length; j++) {
             var pts = shapes[j].extractPoints(steps);
@@ -380,7 +381,11 @@ class SVG3DScene {
                         
             for(var a = 0; a != paths.length; ++a) {
                 for(var b = 0; b != paths[a].length; ++b) {
-                    paths[a][b] = [paths[a][b].x, paths[a][b].y];
+                    console.log(precision);
+                    if (precision >= 0)
+                        paths[a][b] = [paths[a][b].x.toFixed(2), paths[a][b].y.toFixed(2)];
+                    else
+                        paths[a][b] = [paths[a][b].x, paths[a][b].y];
                 }
             }
             this.paths.push(paths);
