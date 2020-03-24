@@ -5,6 +5,18 @@ function clearGroup(group) {
     }
 }
 
+
+function getMaximumSize(mesh) {
+    if (mesh.geometry.vertices.length == 0) {
+        return 1;
+    }
+    
+    var bbox = Box.fromXY(mesh.geometry.vertices);
+    
+    return bbox.getMaximumSize();
+    
+}
+
 // Takes an SVG string, and returns a scene to render as a 3D STL
 function renderObject(paths, viewBox, svgColors, scene, group, camera, options) {
     console.log("Rendering 3D object...");
@@ -22,18 +34,19 @@ function renderObject(paths, viewBox, svgColors, scene, group, camera, options) 
 
     // Create an extrusion from the SVG path shapes
     var finalObj = getExtrudedSvgObject(paths, viewBox, svgColors, options);
-
+    
+    var width = getMaximumSize(finalObj);
 
     // Add the merged geometry to the scene
     group.add(finalObj);
     
     // change zoom wrt the size of the mesh
-    camera.position.set(0, - options.objectWidth, options.objectWidth);
+    camera.position.set(0, - width, width);
 
     // Show the wireframe?
     if(options.wantWireFrame) {
         var wireframe = new THREE.WireframeGeometry(finalObj.geometry);
-        var lines = new THREE.LineSegments( wireframe );
+        var lines = new THREE.LineSegments(wireframe);
         lines.material.depthTest = false;
         lines.material.opacity = 0.25;
         lines.material.transparent = true;
@@ -46,13 +59,13 @@ function renderObject(paths, viewBox, svgColors, scene, group, camera, options) 
     }
     // Show hard edges?
     if(options.wantEdges) {
-        var edges = new THREE.EdgesGeometry( finalObj.geometry);
+        var edges = new THREE.EdgesGeometry(finalObj.geometry);
         var lines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial( { color: 0xffffff } ));
         group.add(lines);
     }
     
     /// add backgroup a background grid
-    var helper = new THREE.GridHelper( options.objectWidth * 1.3, 10 );
+    var helper = new THREE.GridHelper( width * 1.2, 10 );
     helper.rotation.x = Math.PI / 2;
     group.add( helper );
     
@@ -81,9 +94,10 @@ function getExtrudedSvgObject(paths, viewBox, svgColors, options) {
     if(options.wantBasePlate) {
         scene.addBasePlate(viewBox, options.ignoreDocumentMargins, options.baseBuffer, options.objectWidth, options.basePlateShape);
     }
-
+    console.log("path a", JSON.stringify(scene.paths));
     // center and scale the shapes
     scene.rescaleAndCenter(options.objectWidth - (options.baseBuffer * 2));
+    console.log("path b", JSON.stringify(scene.paths));
         
     // stick similar curves if required
     if (options.mergeDistance > 0) {
@@ -306,6 +320,16 @@ class Box {
         
 };
 
+
+Box.prototype.getMaximumSize = function () {
+    var width = this.right - this.left;
+    var height = this.bottom - this.top;
+    if (width > height)
+        return width;
+    else
+        return height;
+}
+
 Box.prototype.add = function(box) {
     if (box.valid) {
         if (box.left < this.left) this.left = box.left;
@@ -359,11 +383,22 @@ Box.fromShapes = function(shapes) {
 
 };
 
+Box.fromXY = function(vertices) {
+    if (vertices.length == 0)
+        return Box.invalid();
+    
+    var result = new Box(vertices[0].x, vertices[0].x, vertices[0].y, vertices[0].y);
+    
+    for(var i = 1; i != vertices.length; ++i) {
+        result.addPoint([vertices[i].x, vertices[i].y]);
+    }
+    return result;
+}
 
 Box.fromPath = function(path) {
     if (path.length == 0)
         return Box.invalid();
-    var result = new Box(path[0][0], path[0][1], path[0][0], path[0][1]);
+    var result = new Box(path[0][0], path[0][0], path[0][1], path[0][1]);
     
     for(var i = 1; i != path.length; ++i) {
         result.addPoint(path[i]);
@@ -449,9 +484,10 @@ class SVG3DScene {
             for(var a = 0; a != paths.length; ++a) {
                 for(var b = 0; b != paths[a].length; ++b) {
                     if (this.precision >= 0)
-                        paths[a][b] = [paths[a][b].x.toFixed(this.precision), paths[a][b].y.toFixed(this.precision)];
+                        paths[a][b] = [parseFloat(paths[a][b].x.toFixed(this.precision)), 
+                                       parseFloat(paths[a][b].y.toFixed(this.precision))];
                     else
-                        paths[a][b] = [paths[a][b].x, paths[a][b].y];
+                        paths[a][b] = [parseFloat(paths[a][b].x), parseFloat(paths[a][b].y)];
                }
             }
             this.paths.push(paths);
@@ -531,10 +567,11 @@ class SVG3DScene {
 
     // center and rescale to match the desired width
     rescaleAndCenter(width) {
+        console.log(JSON.stringify(this.paths));
         var bbox = this.getBoundsOfShapes();
         var ratio = width / (bbox.right - bbox.left);
         var center = bbox.center();
-        
+        console.log(bbox, ratio, center);
         for(var i = 0; i < this.paths.length; ++i) {
             for(var j = 0; j < this.paths[i].length; ++j) {
                 for(var k = 0; k < this.paths[i][j].length; ++k) {
@@ -968,7 +1005,7 @@ class SVG3DScene {
 
     
     create3DShape(baseDepth, wantInvertedType, material) {
-        // remove not visible regions
+        // remove not visible regions and compute the silhouette
         this.clipPathsUsingVisibility();
         
         // merge regions with similar depth

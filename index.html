@@ -291,7 +291,7 @@
         });
         // When asked to export 3D scene to STL file, do so,
         // using the uploaded filename with a changed extension
-        $("#download").on("click", function(){ saveSTL(scene, fileName.replace(/\.[^\.]*$/, "")); });
+        $("#download").on("click", function(e){ e.preventDefault(); saveSTL(scene, fileName.replace(/\.[^\.]*$/, "")); return true;});
     });
 
     
