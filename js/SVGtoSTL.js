@@ -512,7 +512,7 @@ class SVG3DScene {
         else {
             var middle = bbox.center();
             var corner = [bbox.left, bbox.top];
-            var radius = distanceSqrd(middle, corner);
+            var radius = Math.sqrt(distanceSqrd(middle, corner));
             plate = [];
             var nbPoints = 128;
             for(var i = 0; i != nbPoints; i++) {
