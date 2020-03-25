@@ -94,10 +94,9 @@ function getExtrudedSvgObject(paths, viewBox, svgColors, options) {
     if(options.wantBasePlate) {
         scene.addBasePlate(viewBox, options.ignoreDocumentMargins, options.baseBuffer, options.objectWidth, options.basePlateShape);
     }
-    console.log("path a", JSON.stringify(scene.paths));
+
     // center and scale the shapes
     scene.rescaleAndCenter(options.objectWidth - (options.baseBuffer * 2));
-    console.log("path b", JSON.stringify(scene.paths));
         
     // stick similar curves if required
     if (options.mergeDistance > 0) {
@@ -118,6 +117,19 @@ function getExtrudedSvgObject(paths, viewBox, svgColors, options) {
  **  
  **/
 
+function pt2List(v) {
+        return [v.x, v.y];
+}
+
+function edgesContains(listEdges, e) {
+            for(var t = 0; t != listEdges.length; ++t) {
+                if (((listEdges[t].ids[0] == e.ids[0]) && (listEdges[t].ids[1] == e.ids[1])) ||
+                    ((listEdges[t].ids[1] == e.ids[0]) && (listEdges[t].ids[0] == e.ids[1])))
+                    return true;
+            }
+            return false;
+};
+        
 function truncator(x, precision) {    
     var npow = Math.pow(10, precision);
     return Math.round(x * npow) / npow;
@@ -567,11 +579,9 @@ class SVG3DScene {
 
     // center and rescale to match the desired width
     rescaleAndCenter(width) {
-        console.log(JSON.stringify(this.paths));
         var bbox = this.getBoundsOfShapes();
         var ratio = width / (bbox.right - bbox.left);
         var center = bbox.center();
-        console.log(bbox, ratio, center);
         for(var i = 0; i < this.paths.length; ++i) {
             for(var j = 0; j < this.paths[i].length; ++j) {
                 for(var k = 0; k < this.paths[i][j].length; ++k) {
@@ -666,8 +676,9 @@ class SVG3DScene {
                 if (this.depths[j] == uDepths[i]) {
                     if (union.length == 0)
                         union = [this.paths[j]];
-                    else
-                        union = martinez.union(union, this.paths[j]);
+                    else {
+                        union = martinez.union(union, [this.paths[j]]);
+                    }
                 }
             }
             
@@ -704,10 +715,12 @@ class SVG3DScene {
                 }
                 else {
                     // we have to add the new shapes to the structure
-                    newShapes = martinez.diff(TreeNode.splitIntoShapes(curPaths), this.silhouette);
+                    var sp = TreeNode.splitIntoShapes(curPaths);
+                    newShapes = martinez.diff(sp, this.silhouette);
                     
                     // the new this.silhouette is the union
-                    this.silhouette = martinez.union(curPaths, this.silhouette);
+                    this.silhouette = martinez.union([curPaths], this.silhouette);
+
                     this.silhouette = TreeNode.splitIntoShapes(this.silhouette);
                 }
 
@@ -729,6 +742,234 @@ class SVG3DScene {
         this.depths = depthsShapes;
      
         this.adjustToPrecision();        
+    }
+    
+    
+    findNeighborNotNull(list, id, step) {
+        var res = id;
+        do {
+            if ((res == list.length - 1) && step == 1)
+                res = 0;
+            else if ((res == 0) && step == -1)
+                res = list.length - 1;
+            else
+                res += step;
+            if (res == id) {
+                console.log("WARNING: unable to find a triangle in this shape");
+                return null;
+            }
+        } while (list[res] == 0);
+        return res;
+    }
+    
+
+    
+    findAndSplitTriangle(triangles, p1, p2, newPoint) {
+        for(var i = 0; i < triangles.length; ++i) {
+            var idp1 = triangles[i].indexOf(p1);
+            var idp2 = triangles[i].indexOf(p2);
+            if ((idp1 != -1) && (idp2 != -1)) {
+                    var t1 = triangles[i].slice();
+                    t1[idp1] = newPoint;
+                    var t2 = triangles[i].slice();
+                    t2[idp2] = newPoint;
+                    return {before: i, after: [t1, t2] };
+            }
+        }
+        return null;
+        
+    }
+    
+    splitTrianglesAddMissingVertices(triangles, contour, holes) {
+        var vertices = [contour].concat(holes);
+        // first identify vertices that are not in a triangle
+        var nbTriangles = [];
+        var polygonFirstID = [];
+        var nb = 0;
+        for(var i = 0; i != vertices.length; ++i) {
+            polygonFirstID.push(nb);
+            for(var j = 0; j != vertices[i].length; ++j) {
+                nbTriangles.push(0);
+            }
+            nb += vertices[i].length;
+        }
+        
+        for(var i = 0; i < triangles.length; ++i) {
+            nbTriangles[triangles[i][0]] += 1;
+            nbTriangles[triangles[i][1]] += 1;
+            nbTriangles[triangles[i][2]] += 1;
+        }
+        
+        // then for each orphan vertex
+        for(var i = 0; i != vertices.length; ++i) {
+            for(var j = 0; j != vertices[i].length; ++j) {
+                if (nbTriangles[polygonFirstID[i] + j] == 0) {
+                    var subNbTriangles = nbTriangles.slice(polygonFirstID[i], polygonFirstID[i] + vertices[i].length);
+                    var pred = this.findNeighborNotNull(subNbTriangles, j, -1);
+                    var next = this.findNeighborNotNull(subNbTriangles, j, +1);
+                    var finalID = polygonFirstID[i] + j;
+                    if (pred == null || next == null) {
+                        console.log("WARNING: unable to find a triangle for", finalID, vertices[i][j], " (border without triangle)");
+                    }
+                    else {
+                        var t = this.findAndSplitTriangle(triangles, polygonFirstID[i] + pred, polygonFirstID[i] + next, 
+                                                   polygonFirstID[i] + j);
+                        if (t != null) {
+                            console.log("Orphan vert", finalID, vertices[i][j], "found in triangle", triangles[t.before], "replaced by", t.after[0], t.after[1]);
+                            triangles[t.before] = t.after[0];
+                            triangles.push(t.after[1]);
+                        }
+                        else {
+                            console.log("Unable to find a triangle for", finalID, vertices[i][j], ". Will be handled later.");
+                        }
+                    }
+                }
+            }
+        }
+        
+        return triangles;
+    }
+    
+    findBestMatchingEdge(edges, target) {
+        var epsilon = 1e-6;
+        var best = null;
+        var bestDist = -1;
+        
+        // find the best edge match
+        for(var e = 0; e != edges.length; ++e) {
+            var A = [edges[e].coords[0].x, edges[e].coords[0].y];
+            var B = [edges[e].coords[1].x, edges[e].coords[1].y];
+            var d1, d2;
+            var e1 = false, e2 = false;
+            if (target.ids[0] == edges[e].ids[0] || target.ids[0] == edges[e].ids[1]) {
+                d1 = 0;
+                e1 = true;
+            }
+            else
+                d1 = distanceSqrdPointSegment([target.coords[0].x, target.coords[0].y],
+                                              A, B, epsilon);
+            if (d1 >= 0) {
+                if (target.ids[1] == edges[e].ids[0] || target.ids[1] == edges[e].ids[1]) {
+                    d2 = 0;
+                    e2 = true;
+                }
+                else
+                    d2 = distanceSqrdPointSegment([target.coords[1].x, target.coords[1].y],
+                                                  A, B, epsilon);
+                if (d2 >= 0) {
+                    var d = d1 + d2;
+                    if ((best == null) || bestDist > d) {
+                        best = edges[e];
+                        best.ext = [ e1, e2 ];
+                        bestDist = d;
+                    }
+                }
+            }
+        }
+        
+        
+        if (best != null) {
+            console.log(JSON.stringify(best));
+            var idp1 = best.tr.indexOf(best.ids[0]);
+            var idp2 = best.tr.indexOf(best.ids[1]);
+            if (best.ext[0]) {
+                var t1 = best.tr.slice();
+                t1[idp1] = target.ids[1];
+                var t2 = best.tr.slice();
+                t2[idp2] = target.ids[1];
+                return {before: best.trID, after: [t1, t2] };
+            }
+            else if (best.ext[1]) {
+                var t1 = best.tr.slice();
+                t1[idp1] = target.ids[0];
+                var t2 = best.tr.slice();
+                t2[idp2] = target.ids[0];
+                return {before: best.trID, after: [t1, t2] };                
+            }
+            else {
+                var t1 = best.tr.slice();
+                var t2 = best.tr.slice();
+                var t3 = best.tr.slice();
+                var goodOrder = distanceSqrd(pt2List(best.coords[0]), pt2List(target.coords[0])) <
+                                distanceSqrd(pt2List(best.coords[0]), pt2List(target.coords[1]));
+                var idN1 = goodOrder ? target.ids[0] : target.ids[1];
+                var idN2 = goodOrder ? target.ids[1] : target.ids[0];
+                t1[idp2] = idN1;
+                t2[idp1] = idN1;
+                t2[idp2] = idN2;
+                t2[idp1] = idN2;
+                
+                return {before: best.trID, after: [t1, t2, t3] };                
+                
+            }
+        }
+        else {
+            return null;
+        }
+    }
+    
+    reintroduceMissingEdges(triangles, contour, holes) {
+        var contours = [contour].concat(holes);
+        
+        // build a list of all the contour edges
+        var edges = [];
+        var nb = 0;
+        for(var i = 0; i != contours.length; ++i) {
+            if (contours[i].length > 1) {
+                for(var j = 0; j != contours[i].length; ++j) {
+                    edges.push({ ids: [nb + j, nb + (j + 1) % contours[i].length],
+                                 coords: [contours[i][j], contours[i][(j + 1) % contours[i].length]]});
+                }
+            }
+            nb += contours[i].length;
+        }
+        
+        // build a flat list of all the vertices
+        var vertices = contour;
+        for (var j = 0; j <holes.length; j++) {
+            vertices = vertices.concat(holes[j]);
+        }
+
+        var buildEdge = function(triangles, vertices, t, a, b) {
+            return { ids : [triangles[t][a], triangles[t][b]], trID: t, tr: triangles[t], 
+                        coords: [vertices[triangles[t][a]], vertices[triangles[t][b]]] }
+        }
+        
+        // build a list of all the triangle edges
+        var tEdges = [];
+        for(var t = 0; t != triangles.length; ++t) {
+            for(var i = 0; i != 3; ++i) {
+                tEdges.push(buildEdge(triangles, vertices, t, i, (i + 1) % 3));
+            }
+        }
+        
+        
+        // keep only edges that are not in the triangles
+        edges = edges.filter(e => !edgesContains(tEdges, e));
+
+        for(var e = 0; e != edges.length; ++e) {
+            var t = this.findBestMatchingEdge(tEdges, edges[e]);
+            if (t != null) {
+                console.log("Missing edge", edges[e].ids, "found in triangle", triangles[t.before], "replaced by", JSON.stringify(t.after));
+                triangles[t.before] = t.after[0];
+                for(var i = 0; i != 3; ++i) {
+                    tEdges[t.before * 3 + i] = buildEdge(triangles, vertices, t.before, i, (i + 1) %3);
+                }
+                
+                for(var i = 1; i < t.after.length; ++i) {
+                    triangles.push(t.after[i]);
+                    for(var i = 0; i != 3; ++i) {
+                        tEdges.push(buildEdge(triangles, vertices, triangles.length - 1, i, (i + 1) % 3));
+                    }
+                }
+            }
+            else {
+                console.log("Unable to find a triangle for edge ", e);
+            }
+        }
+        
+        return triangles;
+        
     }
     
     // fill paths it with triangles
@@ -756,13 +997,22 @@ class SVG3DScene {
                 }
             }
             
+            // build triangles
             var faces = THREE.ShapeUtils.triangulateShape(vertices, holes);
             
+            // modify the triangle data structure to avoid orphan vertices
+            faces = this.splitTrianglesAddMissingVertices(faces, vertices, holes);
+            
+            // reintroduce possible missing edges
+            faces = this.reintroduceMissingEdges(faces, vertices, holes);
+            
+            // build list of vertices
             var finalvertices = vertices;
             for (var j = 0; j <holes.length; j++) {
                 finalvertices = finalvertices.concat(holes[j]);
             }
-            
+
+            // add this shape to the final data structure
             if (depths == -1)
                 fShapes.push({points: finalvertices, faces: faces});
             else
@@ -1007,7 +1257,6 @@ class SVG3DScene {
     create3DShape(baseDepth, wantInvertedType, material) {
         // remove not visible regions and compute the silhouette
         this.clipPathsUsingVisibility();
-        
         // merge regions with similar depth
         this.mergePathsSameDepth();
         
