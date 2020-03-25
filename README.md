@@ -13,34 +13,34 @@ There are example SVG files in [example-svg/].
  ![Screenshot](https://raw.githubusercontent.com/jmtrivial/svg-to-stl/master/screenshot.png)
 
 ### Options
-  - Specifying type height
-    - Including indented/recessed type
+  - Specifying type height for each color (possibly negative)
   - Rendering with and without a base plate
-    - Round and Rectangular base plates supported
-    - Specifying base plate height
-  - Optionally inverting type for printing press use
-  - Optionally flaring the base of type for added strength
-  - Reversing the winding order (CW/CCW) of SVG paths for incorrectly-built SVG files
+    - Round, Square and Rectangular base plates supported
+    - Specifying base plate height (bypassing the size defined in the SVG)
+  - Optionally tune some parameters to bypass some limitations of the reconstruction algorithms
 
 ### Known problems
-  - A hole in an SVG path should be defined by points in counter-clockwise order, where the shape outline is defined by points in a clockwise order, or vice versa. Some SVG creation tools don't do this correctly, and shapes render in 3D space as "inside out".
-    - You can try the "Reverse Winding Order" option to fix this, but it's possible to have both combinations of winding in the same file, ensuring that some part is always inside out.
   - SVG text elements are not supported. To render text, you need to convert the text to "outlines" or "paths" before saving the SVG file.
+  - Some configurations may produce non closed meshes (basic-03.svg file). This problem will be corrected in a near future.
 
 ### Requirements
 This tool requires javascript support, and a browser that can handle a [WebGL] canvas, and the [File API].
 
 ### Version
-0.6a
+0.6b
 
 ### Tools Used
 svg-to-stl makes use of a number of other open source projects:
+
 * [three.js] - For WebGL rendering of a 3D scene
 * [d3-threeD] - For converting SVG paths into three.js geometries
+* [martinez] - For clipping shapes preserving only visible parts
 * [flatten.js] - For applying all heirarchical transforms in an SVG to its paths
 * [ThreeCSG] - For [Constructive Solid Geometry] support
 * [STLExporter] - For converting a three.js geometry into an ASCII STL file
-* [Spectrum] - For a javascript color-picker
+* [Bootstrap] - For User Interface
+* [bootstrap-colorpicker] - For color selection
+* [bootstrap-dark] - A dark theme
 * [Entypo] - Example SVG files to play with
 * [jQuery]
 
