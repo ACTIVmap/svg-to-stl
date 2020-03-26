@@ -61,3 +61,8 @@ svg-to-stl makes use of a number of other open source projects:
    [Spectrum]: <https://github.com/bgrins/spectrum>
    [Entypo]: <http://www.entypo.com>
    [jQuery]: <https://jquery.com/>
+   [martinez]: <https://github.com/w8r/martinez/>
+   [Bootstrap]: <https://getbootstrap.com/>
+   [bootstrap-colorpicker]: <https://github.com/itsjavi/bootstrap-colorpicker>
+   [bootstrap-dark]: <https://github.com/ForEvolve/bootstrap-dark>
+   
