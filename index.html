@@ -32,18 +32,21 @@
 
     <!-- dark colors -->
     <link rel="stylesheet" href="css/external/bootstrap-dark.min.css">
+    
+    <!-- Multilang interface -->
+    <script src="js/jquery-multilang.js"></script>
   </head>
   <body>
     <div class="container-xl" id="main-container">
-     <h1>SVG to STL conversion</h1>
-     <p class="lead">This tool has been developped within <a href="https://activmap.limos.fr/">ACTIVmap project</a> to convert 2D images into meshes for 3D printing. 
+     <h1 tkey="title">SVG to STL conversion</h1>
+     <p class="lead" tkey="lead">This tool has been developped within <a href="https://activmap.limos.fr/">ACTIVmap project</a> to convert 2D images into meshes for 3D printing. 
      The main goal is to provide an easy-to-use way to generate 3D maps for people with visual impairment.</p>
      <div class="row">
         <div class="col-md-6 col-lg-4">
-            <h2>Input SVG image</h2>
+            <h2 tkey="titleSVG">Input SVG image</h2>
             <form>
                 <div class="btn btn-primary btn-block" style="position: relative">
-                        <label style="padding: 0; margin: 0">Choose file</label>
+                        <label style="padding: 0; margin: 0" tkey="chooseFile">Choose file</label>
                         <input type="file" id="svgInputFile" name="files[]" accept="image/svg+xml" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: pointer; opacity: 0">
                     </div>
             </form>
@@ -57,31 +60,31 @@
 
         </div>
         <div class="col-md-6 col-lg-8">
-            <h2>Options</h2>
+            <h2 tkey="options">Options</h2>
             <form>
                 <ul class="nav nav-tabs" id="optionTabs" role="tablist">
                     <li class="nav-item">
-                        <a class="nav-link active" data-toggle="tab" role="tab" href="#shape-options" id="shape-options-tab" aria-controls="shape-options-tab" aria-selected="true">Shapes</a>
+                        <a class="nav-link active" data-toggle="tab" role="tab" href="#shape-options" id="shape-options-tab" aria-controls="shape-options-tab" aria-selected="true" tkey="shapesTab">Shapes</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" data-toggle="tab" role="tab" href="#display-options" id="display-options-tab" aria-controls="display-options-tab" aria-selected="false">Display</a>
+                        <a class="nav-link" data-toggle="tab" role="tab" href="#display-options" id="display-options-tab" aria-controls="display-options-tab" aria-selected="false" tkey="displayTab">Display</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" data-toggle="tab" role="tab" href="#advanced-options" id="advanced-options-tab" aria-controls="advanced-options-tab" aria-selected="false">Advanced</a>
+                        <a class="nav-link" data-toggle="tab" role="tab" href="#advanced-options" id="advanced-options-tab" aria-controls="advanced-options-tab" aria-selected="false" tkey="advancedTab">Advanced</a>
                     </li>
                 </ul>
                 <div class="tab-content" id="myTabContent">
                     <div class="tab-pane show active my-sm-3" id="shape-options" role="tabpanel" aria-labelledby="shape-options-tab">
                         <fieldset>
-                            <h3>Shapes</h3>
+                            <h3 tkey="shapesTitle">Shapes</h3>
                             
                             <div class="form-group">
                                 <table class="table">
                                     <thead>
                                         <tr>
                                             <th scope="col">#</th>
-                                            <th scope="col">Original color</th>
-                                            <th scope="col">Elevation from the base in the 3D object</th>
+                                            <th scope="col" tkey="originalColor">Original color</th>
+                                            <th scope="col" tkey="elevation">Elevation from the base in the 3D object</th>
                                         </tr>
                                     </thead>
                                     <tbody id="tableDepths">
@@ -92,34 +95,34 @@
                                         </tr>
                                     </tbody>
                                 </table>
-                                <small class="form-text text-muted">Unit: millimeters. Only positive values.</small>
+                                <small class="form-text text-muted" tkey="unitMMSmallVals">Unit: millimeters. Only positive values.</small>
                             </div>
                             
                         </fieldset>
                     </div>
                     <div class="tab-pane my-sm-3" id="display-options" role="tabpanel" aria-labelledby="display-options-tab">
-                        <h3>Geometry</h3>
+                        <h3 tkey="geometryTitle">Geometry</h3>
                         <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="" id="showWireFrame">
-                                <label class="form-check-label" for="showWireFrame">
+                                <label class="form-check-label" for="showWireFrame" tkey="showWireFrame">
                                     Show Wire Frame
                                 </label>
                         </div>
                         <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="" id="showEdges" checked>
-                                <label class="form-check-label" for="showEdges">
+                                <label class="form-check-label" for="showEdges" tkey="showEdges">
                                     Show Edges
                                 </label>
                         </div>
                         <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="" id="showNormals">
-                                <label class="form-check-label" for="showNormals">
+                                <label class="form-check-label" for="showNormals" tkey="showNormals">
                                     Show Normals
                                 </label>
                         </div>
-                        <h3>Colors</h3>
+                        <h3 tkey="colorsTitle">Colors</h3>
                         <div class="form-check">
-                                <label class="form-check-label" for="colorPicker">
+                                <label class="form-check-label" for="colorPicker" tkey="color">
                                     Rendering color
                                 </label>
                             <input class="form-control" id="colorPicker" type="text" value="#007bff" />
@@ -127,124 +130,124 @@
 
                     </div>
                     <div class="tab-pane my-sm-3" id="advanced-options" role="tabpanel" aria-labelledby="advanced-options-tab">
-                        <h3>Size</h3>
+                        <h3 tkey="sizeTitle">Size</h3>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="" id="ignoreSVGSize">
-                                <label class="form-check-label" for="ignoreSVGSize">
-                                    Force image size (ignoring SVG value)
+                                <label class="form-check-label" for="ignoreSVGSize" tkey="forceImageSize">
+                                    Force image size (ignoring value given by the SVG file)
                                 </label>
                             </div>
                             <div class="form-group">
-                                <label class="form-check-label" for="objectWidth">
+                                <label class="form-check-label" for="objectWidth" tkey="objectWidth">
                                     Object width
                                 </label>
                                 <input type="number" step="1" min="1" pattern="\d+" class="form-control" id="objectWidth" aria-describedby="objectWidthHelper" value="60" disabled="disabled">
-                                <small id="objectWidthHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
+                                <small id="objectWidthHelper" class="form-text text-muted" tkey="unitMMSmallVals">Unit: millimeters. Only positive values.</small>
                             </div>
                             
 
-                        <h3>Base</h3>
+                        <h3 tkey="baseTitle">Base</h3>
                         
                         <div class="form-row">
                                 <div class="form-group col">
 
                                         <div class="form-check">
                                                 <input class="form-check-input" type="checkbox" value="Use Base Plate" id="wantBasePlate" checked>
-                                                <label class="form-check-label" for="wantBasePlate">
-                                                    Use Base Plate
+                                                <label class="form-check-label" for="wantBasePlate" tkey="wantBasePlate">
+                                                    Add a Base Plate
                                                 </label>
                                         </div>
                                         <div class="form-check">
                                                 <input class="form-check-input" type="checkbox" value="Ignore document margins" id="ignoreDocumentMargins">
-                                                <label class="form-check-label" for="ignoreDocumentMargins">
+                                                <label class="form-check-label" for="ignoreDocumentMargins" tkey="ignoreDocumentMargins">
                                                     Ignore document margins (given size is type size)
                                                 </label>
                                         </div>                   
                                 </div>
                                 <div class="form-group col">
 
-                                    <label class="title baseShape" for="basePlateShape">Base Plate Shape</label>
+                                    <label class="title baseShape" for="basePlateShape" tkey="basePlateShape">Base Plate Shape</label>
                                     
                                     <select class="custom-select" id="basePlateShape">
-                                        <option selected value="Rectangular">Rectangular</option>
-                                        <option value="Squared">Squared</option>
-                                        <option value="Circular">Circular</option>
+                                        <option selected value="Rectangular" tkey="rectangle">Rectangular</option>
+                                        <option value="Squared" tkey="squared">Squared</option>
+                                        <option value="Circular" tkey="circular">Circular</option>
                                     </select>
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group col">
-                                    <label for="baseDepth">Depth of base</label>
+                                    <label for="baseDepth" tkey="baseDepth">Depth of base</label>
                                     <input type="number" step="1" min="1" pattern="\d+" class="form-control" id="baseDepth" aria-describedby="baseDepthHelper" value="5">
-                                    <small id="baseDepthHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
+                                    <small id="baseDepthHelper" class="form-text text-muted" tkey="unitMMSmallVals">Unit: millimeters. Only positive values.</small>
                                 </div>
                                 <div class="form-group col">
-                                    <label for="buffer">Buffer</label>
+                                    <label for="buffer" tkey="buffer">Buffer</label>
                                     <input type="number" min="0.01" pattern="\d+" class="form-control" id="buffer" aria-describedby="bufferHelper" value="0.01">
-                                    <small id="bufferHelper" class="form-text text-muted">Unit: millimeters. Only positive values.</small>
+                                    <small id="bufferHelper" class="form-text text-muted" tkey="unitMMSmallVals">Unit: millimeters. Only positive values.</small>
                                 </div>
                             </div>
 
-                        <h3>Accuracy</h3>
+                        <h3 tkey="accuracyTitle">Accuracy</h3>
                                 <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="Discretization" id="discretization" checked>
-                                <label class="form-check-label" for="discretization">
-                                    Discretization (force points into a discrete grid)
+                                <label class="form-check-label" for="discretization" tkey="discretization">
+                                    Discretization (force points into a regular grid)
                                 </label>
                             </div>
                             <div class="form-group">
-                                <label class="form-check-label" for="precision">
+                                <label class="form-check-label" for="precision" tkey="precision">
                                     Precision (number of decimals when distance is expressed in millimeters)
                                 </label>
                                 <input type="number" step="1" min="2" pattern="\d+" class="form-control" id="precision" aria-describedby="objectWidthHelper" value="2">
                             </div>
 
                             <div class="form-group">
-                                <label class="form-check-label" for="mergeDistance">
+                                <label class="form-check-label" for="mergeDistance" tkey="mergeDistance">
                                     Merge distance (used to remove small gaps between elements)
                                 </label>
                                 <input type="number" min="0" pattern="\d+" class="form-control" id="mergeDistance" aria-describedby="objectWidthHelper" value="0">
-                                <small id="objectWidthHelper" class="form-text text-muted">Unit: millimeters.</small>
+                                <small id="objectWidthHelper" class="form-text text-muted" tkey="unitMM">Unit: millimeters.</small>
                             </div>
                             
-                        <h3>Fine SVG reading</h3>
+                        <h3 tkey="svgreadtitle">Fine SVG reading</h3>
                         <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="Invert Type" id="invertType">
-                                <label class="form-check-label" for="invertType">
+                                <label class="form-check-label" for="invertType" tkey="invertType">
                                     Invert Type
                                 </label>
                         </div>
                         
                         <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="Reverse Winding Order" id="reverseWO">
-                                <label class="form-check-label" for="reverseWO">
+                                <label class="form-check-label" for="reverseWO" tkey="reverseWO">
                                     Reverse Winding Order
                                 </label>
                         </div>
                     </div>
                 </div>
 
-                <input type="submit" class="btn btn-primary btn-block" id="renderButton" disabled="disabled" value="Re-render" />
+                <input type="submit" class="btn btn-primary btn-block" id="renderButton" disabled="disabled" value="Re-render" tkeyvalue="rerender" />
             </form>
         </div>
     </div>
     <div class="row my-sm-3">
         <div class="col">
-            <h2>Output 3D object</h2>
+            <h2 tkey="objTitle">Output 3D object</h2>
             <div class="card mb-3">
                 <div id="stlCanvas" class="stlCanvas card-img-top"></div>
                 <div class="card-body">
-                    <h5 class="card-title">Generated mesh</h5>
+                    <h5 class="card-title" tkey="genMesh">Generated mesh</h5>
                     <p class="card-text" id="meshText"></p>
                     <form>
-                        <input type="submit" class="btn btn-primary btn-block" id="download" disabled="disabled" value="Download mesh" />
+                        <input type="submit" class="btn btn-primary btn-block" id="download" disabled="disabled" value="Download mesh" tkeyvalue="download" />
                     </form>
                 </div>        
             </div>
         </div>
     </div>
-    <div class="footer-page font-small mb-3" style="font-size: 80%">
-	    <a href="https://github.com/jmtrivial/svg-to-stl">SVG-to-STL</a> by <a href="https://jmfavreau.info">Jean-Marie Favreau</a> for <a href="https://activmap.limos.fr">ACTIVmap project</a>, March 2020. Special thanks to Ryan Calme for the <a href="https://github.com/rcalme/svg-to-stl">first version of this tool</a>, and for developers of the libraries used in this software.</footer>
+    <div class="footer-page font-small mb-3" style="font-size: 80%" tkey="footer">
+	    <a href="https://github.com/jmtrivial/svg-to-stl">SVG-to-STL</a> by <a href="https://jmfavreau.info">Jean-Marie Favreau</a> for <a href="https://activmap.limos.fr">ACTIVmap project</a>, March 2020. Special thanks to Ryan Calme for the <a href="https://github.com/rcalme/svg-to-stl">first version of this tool</a>, and for developers of the libraries used in this software.
     </div>
     
   <!-- In-memory file read and parsing -->
@@ -298,7 +301,7 @@
     // given geometric information computed from a mesh
     // write it to the final user
     function displayInfos(geom) {
-        $("#meshText").html("This mesh contains " + geom.vertices + " vertices and " + geom.faces + " faces. <br />Its bounding box is ["
+        $("#meshText").html(translation("meshContains", "This mesh contains %1 vertices and %2 faces.").replace("%1", geom.vertices).replace("%2", geom.faces) + " <br />" + translation("bboxIs", "Its bounding box is") + " ["
                         + geom.bbox.min.x.toFixed(2) + ", " + geom.bbox.min.y.toFixed(2) + ", " + geom.bbox.min.z.toFixed(2) + "] [" 
                         + geom.bbox.max.x.toFixed(2) + ", " + geom.bbox.max.y.toFixed(2) + ", " + geom.bbox.max.z.toFixed(2) + "].");
     }
@@ -463,17 +466,17 @@
           if ([6, 7, 8].includes(doc.width.baseVal.unitType)) {
             doc.width.baseVal.convertToSpecifiedUnits(7);
             svgwidth = doc.width.baseVal.valueInSpecifiedUnits;
-            sizeDefinition += " Width: " + svgwidth + "mm.";
+            sizeDefinition += translation("widthSize", " Width: ") + svgwidth + "mm.";
           }
           // check if a height is given in mm, cm or in in the SVG file
           svgheight = null;
           if ([6, 7, 8].includes(doc.height.baseVal.unitType)) {
             doc.height.baseVal.convertToSpecifiedUnits(7);
             svgheight = doc.height.baseVal.valueInSpecifiedUnits;
-            sizeDefinition += " Height: " + svgheight + "mm.";
+            sizeDefinition += translation("heightSize", " Height: ") + svgheight + "mm.";
           }
           if (sizeDefinition == "")
-            sizeDefinition = "No fabrication size defined in this file.";
+            sizeDefinition = translation("noFabSize", "No fabrication size defined in this file.");
 
           
           $('#uploadedSVG').replaceWith(doc);
@@ -513,11 +516,11 @@
           // display information about the svg file
           $("#svgTitle").html(fileName);
           if (svgPaths.length == 0)
-            $("#svgText").html("No path found in this image.<br />" + sizeDefinition);
+            $("#svgText").html(translation("nopathfound", "No path found in this image.") + "<br />" + sizeDefinition);
           else if (svgPaths.length == 1)
-            $("#svgText").html("One path found in this image.<br />" + sizeDefinition);
+            $("#svgText").html(translation("onpathfound", "One path found in this image.<br />") + sizeDefinition);
           else
-            $("#svgText").html(svgPaths.length + " paths found in this image.<br />" + sizeDefinition);
+            $("#svgText").html(svgPaths.length + translation("pathsfound", " paths found in this image.<br />") + sizeDefinition);
           
           // In case this is the second file uploaded.
           clearGroup(group);
