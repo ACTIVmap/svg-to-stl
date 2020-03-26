@@ -51,6 +51,7 @@
     "heightSize": " Longueur&nbsp;: ",
     "noFabSize": "Pas de taille de fabrication définie dans ce fichier.",
     "bboxIs": "La boîte englobante est",
-    "meshContains": "Ce maillage contient %1 sommets et %2 faces."
+    "meshContains": "Ce maillage contient %1 sommets et %2 faces.",
+    "language": "Langue"
     
 }

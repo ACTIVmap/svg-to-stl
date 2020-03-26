@@ -38,7 +38,24 @@
   </head>
   <body>
     <div class="container-xl" id="main-container">
-     <h1 tkey="title">SVG to STL conversion</h1>
+
+     <div class="row">
+        <div class="col-md-8">
+            <h1 tkey="title">SVG to STL conversion</h1>
+        </div>
+        <div class="col-md-4">
+             <div class="dropdown" style="float: right">
+                <button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" tkey="language">
+                    Lang
+                </button>
+                <div id="langItems" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                    <div class="dropdown-item active" id="item-en" href="#" style="cursor: pointer">English</div>
+                    <div class="dropdown-item" id="item-fr" href="#" style="cursor: pointer">Français</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
      <p class="lead" tkey="lead">This tool has been developped within <a href="https://activmap.limos.fr/">ACTIVmap project</a> to convert 2D images into meshes for 3D printing. 
      The main goal is to provide an easy-to-use way to generate 3D maps for people with visual impairment.</p>
      <div class="row">
@@ -295,6 +312,16 @@
         // When asked to export 3D scene to STL file, do so,
         // using the uploaded filename with a changed extension
         $("#download").on("click", function(e){ e.preventDefault(); saveSTL(scene, fileName.replace(/\.[^\.]*$/, "")); return true;});
+        
+        
+        // if the dropdown menu is used to select a lang, change it
+        $("#langItems .dropdown-item").click(function(e){
+            window.langCode = this.id.replace("item-", "")
+            setLang();
+        });
+
+
+
     });
 
     
