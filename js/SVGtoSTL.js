@@ -693,7 +693,6 @@ class SVG3DScene {
         this.paths = shapes;
         this.depths = depthsShapes;
         
-        this.adjustToPrecision();
     }
     
     // clip path using visibility
@@ -741,7 +740,6 @@ class SVG3DScene {
         this.paths = shapes;
         this.depths = depthsShapes;
      
-        this.adjustToPrecision();        
     }
     
     
@@ -869,7 +867,6 @@ class SVG3DScene {
         
         
         if (best != null) {
-            console.log(JSON.stringify(best));
             var idp1 = best.tr.indexOf(best.ids[0]);
             var idp2 = best.tr.indexOf(best.ids[1]);
             if (best.ext[0]) {
@@ -950,7 +947,6 @@ class SVG3DScene {
         for(var e = 0; e != edges.length; ++e) {
             var t = this.findBestMatchingEdge(tEdges, edges[e]);
             if (t != null) {
-                console.log("Missing edge", edges[e].ids, "found in triangle", triangles[t.before], "replaced by", JSON.stringify(t.after));
                 triangles[t.before] = t.after[0];
                 for(var i = 0; i != 3; ++i) {
                     tEdges[t.before * 3 + i] = buildEdge(triangles, vertices, t.before, i, (i + 1) %3);
@@ -1253,12 +1249,62 @@ class SVG3DScene {
         return geometry;
     }
 
+    addPointIfMissing(path, point) {
+        var epsilon = 0.1 ** (this.precision + 4);
+        if (path.length <= 1)
+            return path;
+        
+        for(var i = 1; i != path.length; ++i) {
+            var p1 = path[i - 1];
+            var p2 = path[i];
+            var dist = distanceSqrdPointSegment(point, p1, p2, epsilon);
+            if ((dist >= 0) && (dist <= epsilon)) {
+                var d1 = distanceSqrd(point, p1);
+                if (d1 > epsilon) {
+                    var d2 = distanceSqrd(point, p2);
+                    if (d2 > epsilon) {
+                        path.splice(i, 0, point);
+                        return path;
+                    }
+                }
+            }
+        }
+        
+        return path;
+        
+    }
+    
+    addMissingPoints() {
+        // for each path of each shape
+        for(var i = 0; i != this.paths.length; ++i) {
+            for(var j = 0; j != this.paths[i].length; ++j) {
+                // add possible vertices from any other shape
+                for(var ii = 0; ii != this.paths.length; ++ii) {
+                    if (ii != i) {
+                        for(var jj = 0; jj != this.paths[ii].length; ++jj) {
+                            for(var kk = 0; kk != this.paths[ii][jj].length; ++kk) {
+                                this.paths[i][j] = this.addPointIfMissing(this.paths[i][j], this.paths[ii][jj][kk]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     
     create3DShape(baseDepth, wantInvertedType, material) {
         // remove not visible regions and compute the silhouette
         this.clipPathsUsingVisibility();
+        
         // merge regions with similar depth
         this.mergePathsSameDepth();
+        
+        // add possible missing vertices along the paths
+        // when two shapes are sharing a common edge
+        this.addMissingPoints();
+
+        // adjust to precision before any other step
+        this.adjustToPrecision();
         
         // fill shapes
         this.shapes = this.fillShapes(this.paths, this.depths);
