@@ -21,7 +21,7 @@ There are example SVG files in [example-svg/](https://github.com/jmtrivial/svg-t
 
 ### Known problems
   - SVG text elements are not supported. To render text, you need to convert the text to "outlines" or "paths" before saving the SVG file.
-  - Some configurations may produce non closed meshes (basic-03.svg file). This problem will be corrected in a near future.
+  - Some configurations may produce non closed meshes (exemple-07.svg file). This problem is due to [a bug](https://github.com/w8r/martinez/issues/124) identified in Martinez, that will be corrected in a near future.
 
 ### Requirements
 This tool requires javascript support, and a browser that can handle a [WebGL] canvas, and the [File API].
