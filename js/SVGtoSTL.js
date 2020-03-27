@@ -73,7 +73,7 @@ function renderObject(paths, viewBox, svgColors, scene, group, camera, options) 
     finalObj.geometry.computeBoundingBox();
     
     return { vertices : finalObj.geometry.vertices.length, faces : finalObj.geometry.faces.length,
-             bbox : finalObj.geometry.boundingBox, isValidMesh: SVG3DScene.getBoundaryEdges(finalObj.geometry).length == 0 };
+             bbox : finalObj.geometry.boundingBox, isValidMesh: SVG3DScene.getNonValidEdges(finalObj.geometry).length == 0 };
 };
 
 
@@ -1318,29 +1318,68 @@ class SVG3DScene {
 
 
 SVG3DScene.getVertex = function(triangle, id) {
-        if (id == 0) return triangle.a;
-        else if (id == 1) return triangle.b;
-        else return triangle.c;
+    if (id == 0) return triangle.a;
+    else if (id == 1) return triangle.b;
+    else return triangle.c;
 }
     
-SVG3DScene.getBoundaryEdges = function(geometry) {
-        var result = [];
-        
-        // build a list of all the edges, but remove an
-        // edge if the same edge (other direction) is already
-        // in the list
-        for(var i = 0; i != geometry.faces.length; ++i) {
-            for(var j = 0; j != 3; ++j) {
-                var v1 = SVG3DScene.getVertex(geometry.faces[i], j);
-                var v2 = SVG3DScene.getVertex(geometry.faces[i], (j + 1) % 3);
-                var len = result.length;
-                result = result.filter(x => !((x[0] == v2) && (x[1] == v1)));
-                if (len == result.length)
-                    result.push([v1, v2]);
+SVG3DScene.getNonValidEdges = function(geometry) {
+    var result = [];
+    
+    var nbHalfEdges = {};
+    // count the number of halfedges
+    for(var i = 0; i != geometry.faces.length; ++i) {
+        for(var j = 0; j != 3; ++j) {
+            var v1 = SVG3DScene.getVertex(geometry.faces[i], j);
+            var v2 = SVG3DScene.getVertex(geometry.faces[i], (j + 1) % 3);
+            if (v1 == v2) { // two identical vertices in a triangle
+                result.push([v1, v2]);
+            }
+            
+            if (v2 > v1) {
+                var v3 = v1;
+                v1 = v2;
+                v2 = v3;
+            }
+            var key = v1 + "," + v2;
+            // count 
+            if (key in nbHalfEdges) {
+                nbHalfEdges[key] += 1;
+            }
+            else {
+                nbHalfEdges[key];
             }
         }
-                
-        return result;
     }
+    
+    // only keep edges with number != 2 (not manifold)
+    for(var e in nbHalfEdges) {
+        if (nbHalfEdges[e] != 2)
+            var v = e.split(",");
+            result.push([parseInt(v[0]), parseInt(v[1])]);
+    }
+            
+    return result;
+}
+
+SVG3DScene.getBoundaryEdges = function(geometry) {
+    var result = [];
+    
+    // build a list of all the edges, but remove an
+    // edge if the same edge (other direction) is already
+    // in the list
+    for(var i = 0; i != geometry.faces.length; ++i) {
+        for(var j = 0; j != 3; ++j) {
+            var v1 = SVG3DScene.getVertex(geometry.faces[i], j);
+            var v2 = SVG3DScene.getVertex(geometry.faces[i], (j + 1) % 3);
+            var len = result.length;
+            result = result.filter(x => !((x[0] == v2) && (x[1] == v1)));
+            if (len == result.length)
+                result.push([v1, v2]);
+        }
+    }
+            
+    return result;
+}
 
 
