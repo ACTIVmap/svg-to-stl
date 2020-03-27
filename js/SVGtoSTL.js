@@ -17,6 +17,7 @@ function getMaximumSize(mesh) {
     
 }
 
+
 // Takes an SVG string, and returns a scene to render as a 3D STL
 function renderObject(paths, viewBox, svgColors, scene, group, camera, options) {
     console.log("Rendering 3D object...");
@@ -72,7 +73,7 @@ function renderObject(paths, viewBox, svgColors, scene, group, camera, options) 
     finalObj.geometry.computeBoundingBox();
     
     return { vertices : finalObj.geometry.vertices.length, faces : finalObj.geometry.faces.length,
-             bbox : finalObj.geometry.boundingBox };
+             bbox : finalObj.geometry.boundingBox, isValidMesh: SVG3DScene.getBoundaryEdges(finalObj.geometry).length == 0 };
 };
 
 
@@ -1089,30 +1090,6 @@ class SVG3DScene {
         return geometry;
     }
 
-    getVertex(triangle, id) {
-        if (id == 0) return triangle.a;
-        else if (id == 1) return triangle.b;
-        else return triangle.c;
-    }
-    getBoundaryEdges(geometry) {
-        var result = [];
-        
-        // build a list of all the edges, but remove an
-        // edge if the same edge (other direction) is already
-        // in the list
-        for(var i = 0; i != geometry.faces.length; ++i) {
-            for(var j = 0; j != 3; ++j) {
-                var v1 = this.getVertex(geometry.faces[i], j);
-                var v2 = this.getVertex(geometry.faces[i], (j + 1) % 3);
-                var len = result.length;
-                result = result.filter(x => !((x[0] == v2) && (x[1] == v1)));
-                if (len == result.length)
-                    result.push([v1, v2]);
-            }
-        }
-                
-        return result;
-    }
     
     getPointsSame2DLocationPt(geometry, pointID) {
         var point = geometry.vertices[pointID];
@@ -1224,7 +1201,7 @@ class SVG3DScene {
     
     addSides(geometry) {
         // identify all the boundary edges in the geometry
-        var bEdges = this.getBoundaryEdges(geometry);
+        var bEdges = SVG3DScene.getBoundaryEdges(geometry);
         
         // find all the points of the boundary with same (x, y) location
         var sPoints = this.getPointsSame2DLocation(geometry, bEdges);
@@ -1339,5 +1316,31 @@ class SVG3DScene {
 
 }
 
+
+SVG3DScene.getVertex = function(triangle, id) {
+        if (id == 0) return triangle.a;
+        else if (id == 1) return triangle.b;
+        else return triangle.c;
+}
+    
+SVG3DScene.getBoundaryEdges = function(geometry) {
+        var result = [];
+        
+        // build a list of all the edges, but remove an
+        // edge if the same edge (other direction) is already
+        // in the list
+        for(var i = 0; i != geometry.faces.length; ++i) {
+            for(var j = 0; j != 3; ++j) {
+                var v1 = SVG3DScene.getVertex(geometry.faces[i], j);
+                var v2 = SVG3DScene.getVertex(geometry.faces[i], (j + 1) % 3);
+                var len = result.length;
+                result = result.filter(x => !((x[0] == v2) && (x[1] == v1)));
+                if (len == result.length)
+                    result.push([v1, v2]);
+            }
+        }
+                
+        return result;
+    }
 
 
