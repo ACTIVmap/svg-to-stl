@@ -44,9 +44,10 @@ var setLang = function() {
     
     if (window.langs.indexOf(window.langCode) != -1) {
         translate(window.langCode);
+        $("#langItems .dropdown-item").removeClass("active");
+        $("#langItems #item-" + window.langCode).addClass("active");
+        $("html").attr("lang", window.langCode);
     }
-    $("#langItems .dropdown-item").removeClass("active");
-    $("#langItems #item-" + window.langCode).addClass("active");
 };
 
 
