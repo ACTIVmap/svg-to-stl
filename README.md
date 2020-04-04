@@ -5,7 +5,7 @@ Created to create tactile maps for visually impaired people from a simple image,
 This tool is part of the tools created by the [ACTIVmap](https://activmap.limos.fr) project.
 
 ### Demo
-You can try the tool [online](https://svg-to-stl.jmfavreau.info).
+You can try the tool [online](https://jmtrivial.github.io/svg-to-stl/).
 
 There are example SVG files in [example-svg/](https://github.com/jmtrivial/svg-to-stl/tree/master/example-svg/).
 
