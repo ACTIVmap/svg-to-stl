@@ -52,6 +52,152 @@ SVGElement.prototype.getTransformToElement = SVGElement.prototype.getTransformTo
     return arr.join(',').replace(p2s, '$1');
   };
 
+
+  function getElementUserByURL(root, id, attrName) {
+    // clipping/masking can be applied by a specific attribute
+    var elems = root.querySelectorAll("[" + attrName + "]");
+    result = [];
+    for(var e = 0; e != elems.length; ++e) {
+        if (elems[e].getAttribute(attrName).match(new RegExp("^[ ]*[uU][rR][lL][ ]*\\(#[ ]*[\"\']?" + id + "[\"\']?[ ]*\\)$"))) {
+            result.push(elems[e]);
+        }
+    }
+    // or can be applied by style
+    elems = root.querySelectorAll("[style]");
+    for(var e = 0; e != elems.length; ++e) {
+        if (elems[e].getAttribute("style").match(new RegExp(attrName + "[ ]*:[ ]*[uU][rR][lL][ ]*\\(#[ ]*[\"\']?" + id + "[\"\']?[ ]*\\)"))) {
+            result.push(elems[e]);
+        }
+    }
+    
+    return result;
+  }
+  
+  function makeNewSimilarID(id, document) {
+      if (document.getElementById(id)) {
+          var i = 0;
+          while(document.getElementById(id + "-" + i)) {
+              ++i;
+          }
+          return id + "-" + i;
+      }
+      else
+          return id;
+  }
+  
+  function updateChildrenIDs(elem, i, document) {
+      
+      for(var e = 0; e != elem.children.length; ++e) {
+            if (elem.children[e].id) {
+                elem.children[e].id = makeNewSimilarID(elem.children[e].id + "-" + i, document);
+                updateChildrenIDs(elem.children[e], i, document);
+            }
+      }
+      
+  }
+  
+  function replaceNodeReference(elem, attrName, id, newID) {
+      if (elem.hasAttribute(attrName)) {
+          var oldAttr = elem.getAttribute(attrName);
+          var newVal = oldAttr.replace(new RegExp("^[ ]*[uU][rR][lL][ ]*\\(#[ ]*[\"\']?" + id + "[\"\']?[ ]*\\)$"), "url(#" + newID + ")");
+          if (newVal != oldAttr) {
+            elem.setAttribute(attrName, newVal);
+            return;
+          }
+      }
+      
+      // if the specific attribute has not been replaced, it means the reference
+      // is done using the "style" attribute
+      var oldStyle = elem.getAttribute("style");
+      var newStyle = oldStyle.replace(new RegExp("[ ]*[uU][rR][lL][ ]*\\(#[ ]*[\"\']?" + id + "[\"\']?[ ]*\\)"), "url(#" + newID + ")");
+      elem.setAttribute("style", newStyle);
+      
+  }
+  
+  function duplicateExternalElements(root, elem, domName, attrName) {
+      if (!elem) return;
+
+      var document = window.document;
+          
+      // first duplicate the current element if it is used more than once
+      if (elem.nodeName == domName && elem.id) {
+        users = getElementUserByURL(root, elem.id, attrName);
+        if (users.length != 1) {
+            for(var i = 1; i != users.length; ++i) {
+                // create a new ID (similar to the previous one)
+                var newID = makeNewSimilarID(elem.id + "-" + i, document);
+                // clone the element, change its id
+                var newElem = document.importNode(elem, true);
+                newElem.id = newID;
+                
+                // change the ID of all its children
+                updateChildrenIDs(newElem, i, document);
+                
+                // add it to the document
+                elem.parentNode.insertBefore(newElem, elem);
+                // replace the reference with the new one (in the url(#...) use
+                replaceNodeReference(users[i], attrName, elem.id, newID);
+            }
+        }
+      }
+      
+      // then apply the duplication to its children
+      for(var i = 0, ilen = elem.children.length; i < ilen; i++) {
+        duplicateExternalElements(root, elem.children[i], domName, attrName);
+      }
+      
+  }
+  
+  function prepareExternalElements(root, domName, attrName) {
+     // for each mask or clip-path
+      
+     // duplicate it if used more than once
+     duplicateExternalElements(root, root, domName, attrName);
+      
+     // for each of them, copy it inside the group where it will be used
+     // and add a bookmark at its original place
+     var elems = root.querySelectorAll(domName);
+     for(var e = 0; e != elems.length; ++e) {
+        
+        // find the node that uses the current elem
+        var users = getElementUserByURL(root, elems[e].id, attrName);
+        if (users.length > 1) {
+            console.log("ERROR: after duplication of " + attrName + " with id=" + elems[e].id + ", still find multiple users");
+        }
+        else if (users.length == 1) {
+            // create a bookmark
+            var bookmark = window.document.createElement("bookmark");
+            bookmark.id = elems[e].id + "-bookmark";
+            elems[e].parentNode.insertBefore(bookmark, elems[e]);
+
+            users[0].parentNode.insertBefore(elems[e], users[0]);
+        }
+     }
+      
+      
+ 
+  }
+  
+  function restoreExternalElements(root) {
+     // move back each element at it's original place (using bookmarks)
+     var bookmarks = root.querySelectorAll("bookmark");
+     for(var b = 0; b != bookmarks.length; ++b) {
+        var oID = bookmarks[b].id.replace(new RegExp("-bookmark$"), "");
+        var elem = root.getElementById(oID);
+        bookmarks[b].parentNode.insertBefore(elem, bookmarks[b]);
+        bookmarks[b].parentNode.removeChild(bookmarks[b]);
+     }
+  }
+  
+  function prepareMasksAndClipPaths(elem) {
+    prepareExternalElements(elem, "mask", "mask");
+    prepareExternalElements(elem, "clipPath", "clip-path");
+  }
+  
+  function restoreMaskAndClipPathsDefinitions(elem) {
+    restoreExternalElements(elem);
+  }
+  
   // Flattens transformations of element or it's children and sub-children
   // elem: DOM element
   // toCubics: converts all segments to cubics
@@ -59,21 +205,34 @@ SVGElement.prototype.getTransformToElement = SVGElement.prototype.getTransformTo
   // dec: number of digits after decimal separator
   // Returns: no return value
   function flatten(elem, toCubics, toAbsolute, rectAsArgs, dec)
-  {
+  {        
+    
     if (!elem) return;
     if (typeof (rectAsArgs) == 'undefined') rectAsArgs = false;
     if (typeof (toCubics) == 'undefined') toCubics = false;
     if (typeof (toAbsolute) == 'undefined') toAbsolute = false;
     if (typeof (dec) == 'undefined') dec = false;
 
+ 
     if (elem && elem.children && elem.children.length)
     {
+      if (elem instanceof SVGSVGElement) {
+        // In order to apply transformations to masks and clip-paths, 
+        // we need to do some small modifications before, that will
+        // be restored at the end of the process.
+        prepareMasksAndClipPaths(elem);
+      }
       for (var i = 0, ilen = elem.children.length; i < ilen; i++)
       {
         //console.log(elem.children[i]);
         flatten(elem.children[i], toCubics, toAbsolute, rectAsArgs, dec);
       }
       elem.removeAttribute('transform');
+      
+      if (elem instanceof SVGSVGElement) {
+        restoreMaskAndClipPathsDefinitions(elem);
+      }
+      
       return;
     }
     if (!(elem instanceof SVGCircleElement ||
@@ -85,8 +244,8 @@ SVGElement.prototype.getTransformToElement = SVGElement.prototype.getTransformTo
           elem instanceof SVGPathElement)) return;
 
     path_elem = convertToPath(elem, rectAsArgs);
-    //console.log('path_elem', $(path_elem).wrap('<div />').parent().html() );
-    //$(path_elem).unwrap();
+    // console.log('path_elem', $(path_elem).wrap('<div />').parent().html() );
+    // $(path_elem).unwrap();
 
     if (!path_elem || path_elem.getAttribute(d) == '') return 'M 0 0';
 
