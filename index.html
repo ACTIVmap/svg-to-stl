@@ -506,10 +506,6 @@
     }
 
     function handleFileSelect(evt) {
-      // render button is active
-      $('#renderButton').prop('disabled', false);
-      $('#download').prop('disabled', false);
-
     
       var file = evt.target.files[0]; // FileList object
 
@@ -613,6 +609,11 @@
           
           // give info to the user about the mesh
           displayInfos(geom);
+          
+          // render button is active
+          $('#renderButton').prop('disabled', false);
+          $('#download').prop('disabled', false);
+
         };
       })(file);
 
