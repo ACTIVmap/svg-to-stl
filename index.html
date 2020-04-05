@@ -35,8 +35,26 @@
     
     <!-- Multilang interface -->
     <script src="js/jquery-multilang.js"></script>
+    
+    <style>
+        #dropzone { 
+            z-index: 1000;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #5aaaff;
+            opacity: 0.5;
+            display: none;
+        }
+        #dropzone.visible {
+            display: block;
+        }
+    </style>
   </head>
   <body>
+    <div id="dropzone"></div>
     <div class="container-xl" id="main-container">
 
      <div class="row">
@@ -321,9 +339,36 @@
         });
 
 
+        /* connect events for the drag'n drop function */
+        $('body').on('dragover', dragOverHTML);
+        $('#dropzone').on('dragover', dragOver);
+        $('#dropzone').on('dragleave', dragLeave);
+        $('#dropzone').on('drop', changeUploadFile);
 
     });
 
+    dragOverHTML = function(e) {
+        $("#dropzone").addClass("visible");
+    }
+    
+    dragOver = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.originalEvent.dataTransfer.dropEffect = 'copy';
+    }
+    
+    dragLeave = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $("#dropzone").removeClass("visible");
+    }
+    changeUploadFile = function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        loadImage(e.originalEvent.dataTransfer.files[0]);
+        $("#dropzone").removeClass("visible");
+
+    }
     
     // given geometric information computed from a mesh
     // write it to the final user
@@ -468,7 +513,12 @@
     
       var file = evt.target.files[0]; // FileList object
 
+      loadImage(file);
       
+    }
+    
+    
+    function loadImage(file) {
       // Only process image files.
       if (file.type!="image/svg+xml") {
         return;
@@ -570,7 +620,7 @@
       console.log("Attempting to read file '"+file.name+"'...");
 
       // Reads the SVG contents into a string
-      readerString.readAsText(evt.target.files[0]);
+      readerString.readAsText(file);
     };
   </script>
 
