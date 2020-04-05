@@ -514,9 +514,30 @@
     }
     
     
+    function resetViewer(msg) {
+        
+        // clear 3D view
+        clearGroup(group);
+        var helper = new THREE.GridHelper(10, 10);
+        helper.rotation.x = Math.PI / 2;
+        group.add(helper);
+        camera.position.set(0, -10, 10);
+        $("#meshText").html("");
+
+        // clear 2D view
+        $('#uploadedSVG').replaceWith("<img src=\"img/image.svg\" class=\"card-img-top\" alt=\"svg image (not yet selected)\" id=\"uploadedSVG\">");
+        $("#svgTitle").html("");
+        $("#svgText").html("<div class=\"alert alert-danger\">" + msg + "</div>");
+        
+        // disable buttons
+        $('#renderButton').prop('disabled', true);
+        $('#download').prop('disabled', true);
+    }
+    
     function loadImage(file) {
       // Only process image files.
       if (file.type!="image/svg+xml") {
+        resetViewer(translation("errorNotSVG", "<strong>Error:</strong> input file is not in SVG format."));
         return;
       }
 
@@ -536,6 +557,7 @@
             var svgDoc = $.parseXML(e.target.result);
           }
           catch (error) {
+            resetViewer(translation("errorXML", "<strong>Error:</strong> SVG file is not XML-valid."));
             return;
           }            
 

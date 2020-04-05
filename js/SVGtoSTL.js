@@ -68,7 +68,7 @@ function renderObject(paths, viewBox, svgColors, scene, group, camera, options) 
     /// add backgroup a background grid
     var helper = new THREE.GridHelper( width * 1.2, 10 );
     helper.rotation.x = Math.PI / 2;
-    group.add( helper );
+    group.add(helper);
     
     finalObj.geometry.computeBoundingBox();
     
