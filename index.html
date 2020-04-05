@@ -18,6 +18,8 @@
     <script src="js/external/FileSaver.js"></script>
     <!-- Code that pulls all of the above together -->
     <script src="js/SVGtoSTL.js?version=Eeweigh0"></script>
+    <!-- crop svgs according to clip-paths and masks -->
+    <script src="js/svg-crop.js?version=Eeweigh0"></script>
     
     <!-- Martinez clipping algorithm to compute boolean operations between 2D shapes -->
     <script src="js/external/martinez.min.js?version=Eeweigh0"></script>
@@ -595,38 +597,36 @@
           
           // "Flatten" the SVG by applying all transforms to shapes and paths
           flatten(document.getElementById('uploadedSVG'));
-          // Write to global paths variable. Is there an easy way to return from a closure?
-          svgPaths = $("path", document.getElementById('uploadedSVG')).map(
-                function(){return $(this).attr("d");}
-          ).get();
           
-          svgColors = $("path", document.getElementById('uploadedSVG')).map(
-                function(){ 
-                    var regex = /([\w-]*)\s*:\s*([^;]*)/g;
-                    var match, properties={};
-                    while(match=regex.exec($(this).attr("style"))) properties[match[1].trim()] = match[2].trim();
-                    return "fill" in properties ? properties["fill"] : "#000000";
-                }
-          ).get();
+          // load the svg structure
+          var svgStructure = new SVGCrop('uploadedSVG');
+          
+          // apply clippings
+          svgStructure.applyMasksAndClips();
+          
+          // load a flatten version of the svg (removing groups)
+          svgPaths = svgStructure.getPaths();
+          svgColors = svgStructure.getColors();
           
           // set SVG colors in the UI and in the storage
           setSVGColors(svgColors);
-          
-          // get viewBox
-          viewBox = [doc.viewBox.baseVal.x, doc.viewBox.baseVal.y,
-                    doc.viewBox.baseVal.width, doc.viewBox.baseVal.height];
 
-           // Store the file name in a global
-          fileName = uploadedFile.name;
-
-          // display information about the svg file
-          $("#svgTitle").html(fileName);
           if (svgPaths.length == 0)
             $("#svgText").html(translation("nopathfound", "No path found in this image.") + "<br />" + sizeDefinition);
           else if (svgPaths.length == 1)
             $("#svgText").html(translation("onpathfound", "One path found in this image.<br />") + sizeDefinition);
           else
             $("#svgText").html(svgPaths.length + translation("pathsfound", " paths found in this image.<br />") + sizeDefinition);
+
+          // get viewBox
+          viewBox = [doc.viewBox.baseVal.x, doc.viewBox.baseVal.y,
+                    doc.viewBox.baseVal.width, doc.viewBox.baseVal.height];
+
+          // Store the file name in a global
+          fileName = uploadedFile.name;
+
+          // display information about the svg file
+          $("#svgTitle").html(fileName);
           
           // In case this is the second file uploaded.
           clearGroup(group);
