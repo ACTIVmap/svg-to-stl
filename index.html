@@ -532,7 +532,12 @@
 
           console.log("Parsing SVG paths...");
           // Get the paths out of the SVG
-          var svgDoc = $.parseXML(e.target.result);
+          try {
+            var svgDoc = $.parseXML(e.target.result);
+          }
+          catch (error) {
+            return;
+          }            
 
           // set on-screen
           doc = document.importNode(svgDoc.documentElement, true);
