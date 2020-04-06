@@ -544,14 +544,12 @@ class SVGCrop {
                 }
 
                 // add it to the final data structure
-                for(var k = 0; k != newShapes.length; ++k) {
-                    var split = TreeNode.splitIntoShapes(newShapes[k]);
-
-                    for(var j = 0; j < split.length; ++j) {
-                        shapes.unshift(split[j]);
-                        colorShapes.unshift(this.colors[i]);
-                    }
+                var split = TreeNode.splitIntoShapes(newShapes);
+                for(var j = 0; j < split.length; ++j) {
+                    shapes.unshift(split[j]);
+                    colorShapes.unshift(this.colors[i]);
                 }
+ 
                 
             }
             
