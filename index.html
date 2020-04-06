@@ -125,10 +125,10 @@
                                         </tr>
                                     </thead>
                                     <tbody id="tableDepths">
-                                        <tr>
+                                        <tr id="lineDepth0">
                                             <th scope="row" style="vertical-align: middle">1</th>
                                             <td style="vertical-align: middle"><span style="background: #000000; cursor: auto" class="btn btn-block">#000000</span></td>
-                                            <td><input type="number" class="form-control" id="typeDepth1" value="3"></td>
+                                            <td><input type="number" class="form-control" id="typeDepth0" value="3"></td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -312,7 +312,8 @@
             // Numeric validations would go here
             clearGroup(group);
             // regenerate mesh
-            var geom = renderObject(svgPaths, viewBox, svgColors, scene, group, camera, getFormSelections());
+            loadSVGStructureSetOptions();
+            var geom = renderObject(svgStructure, scene, group, camera, options);
             // give info to the user about the mesh
             displayInfos(geom);
 
@@ -425,9 +426,15 @@
     
     // SVG viewBox 
     var viewBox = [];
+    
+    // options loaded from the GUI
+    var options = [];
 
     // width (in mm, cm or in) contained in the svg header
     var svgwidth = null;
+    
+    // svg structure after clipping, etc.
+    var svgStructure = null;
 
     var initialMaxDepth = 3;
     // a storage of the depths associated to colors.
@@ -536,6 +543,23 @@
         $('#download').prop('disabled', true);
     }
     
+    function loadSVGStructureSetOptions() {
+
+          // get selected options
+          options = getFormSelections();
+
+          viewBox = [doc.viewBox.baseVal.x, doc.viewBox.baseVal.y,
+                    doc.viewBox.baseVal.width, doc.viewBox.baseVal.height];
+
+          svgStructure = new SVGCrop('uploadedSVG', options, viewBox);
+          
+          // set SVG colors in the UI and in the storage
+          setSVGColors(svgStructure.getPalette());
+
+          // update options
+          options = getFormSelections();
+    }
+    
     function loadImage(file) {
       // Only process image files.
       if (file.type!="image/svg+xml") {
@@ -594,34 +618,23 @@
           $('#uploadedSVG').attr("alt", "svg image");
           $('#uploadedSVG').attr("id", "uploadedSVG");
           $('#uploadedSVG').addClass("card-img-top");
-          
+        
+
           // "Flatten" the SVG by applying all transforms to shapes and paths
           flatten(document.getElementById('uploadedSVG'));
           
           // load the svg structure
-          var svgStructure = new SVGCrop('uploadedSVG');
-          
-          // apply clippings
-          svgStructure.applyMasksAndClips();
-          
-          // load a flatten version of the svg (removing groups)
-          svgPaths = svgStructure.getPaths();
-          svgColors = svgStructure.getColors();
-          
-          // set SVG colors in the UI and in the storage
-          setSVGColors(svgColors);
+          // TODO: do we need this reverseWO?
+          loadSVGStructureSetOptions();
 
-          if (svgPaths.length == 0)
+          
+          if (svgStructure.getNbPaths() == 0)
             $("#svgText").html(translation("nopathfound", "No path found in this image.") + "<br />" + sizeDefinition);
-          else if (svgPaths.length == 1)
+          else if (svgStructure.getNbPaths() == 1)
             $("#svgText").html(translation("onpathfound", "One path found in this image.<br />") + sizeDefinition);
           else
-            $("#svgText").html(svgPaths.length + translation("pathsfound", " paths found in this image.<br />") + sizeDefinition);
-
-          // get viewBox
-          viewBox = [doc.viewBox.baseVal.x, doc.viewBox.baseVal.y,
-                    doc.viewBox.baseVal.width, doc.viewBox.baseVal.height];
-
+            $("#svgText").html(svgStructure.getNbPaths() + translation("pathsfound", " paths found in this image.<br />") + sizeDefinition);
+            
           // Store the file name in a global
           fileName = uploadedFile.name;
 
@@ -632,7 +645,7 @@
           clearGroup(group);
           
           // Render the SVG for the first time
-          var geom = renderObject(svgPaths, viewBox, svgColors, scene, group, camera, getFormSelections());
+          var geom = renderObject(svgStructure, scene, group, camera, options);
           
           // give info to the user about the mesh
           displayInfos(geom);
