@@ -33,7 +33,7 @@
     "accuracyTitle": "Précision",
     "discretization": "Discrétisation (forcer les points sur une grille régulière)",
     "precision": "Précision (nombre de décimales quand la distance est exprimée en millimètres)",
-    "mergeDistance": "Distance de fusion (utilisée pour supprimer les petites distanecs entre éléments)",
+    "mergeDistance": "Distance de fusion (utilisée pour supprimer les petites distances entre éléments)",
     "unitMM": "Unité&nbsp;: millimètres",
     "svgreadtitle": "Lecture SVG (réglages fins)",
     "invertType": "Inverser les formes",
