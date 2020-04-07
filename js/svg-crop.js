@@ -362,6 +362,32 @@ class SVGCrop {
         }
     }
           
+    // center and rescale to match the desired width
+    rescaleAndCenter(width) {
+        var bbox = this.getBoundsOfShapes();
+        var ratio = width / (bbox.right - bbox.left);
+        var center = bbox.center();
+        // rescale and center paths
+        for(var i = 0; i < this.paths.length; ++i) {
+            for(var j = 0; j < this.paths[i].length; ++j) {
+                for(var k = 0; k < this.paths[i][j].length; ++k) {
+                    this.paths[i][j][k] = [(this.paths[i][j][k][0] - center[0]) * ratio, 
+                                           (this.paths[i][j][k][1] - center[1]) * ratio];
+                }
+            }
+        }
+        // rescale and center silhouette
+       for(var i = 0; i < this.silhouette.length; ++i) {
+            for(var j = 0; j < this.silhouette[i].length; ++j) {
+                for(var k = 0; k < this.silhouette[i][j].length; ++k) {
+                    this.silhouette[i][j][k] = [(this.silhouette[i][j][k][0] - center[0]) * ratio, 
+                                            (this.silhouette[i][j][k][1] - center[1]) * ratio];
+                }
+            }
+        }
+
+                
+    }
           
     process() {
         if (this.svgPaths == null) {
@@ -387,13 +413,17 @@ class SVGCrop {
         
             if (this.options.wantBasePlate != null)
                 this.addBasePlateInternal();
+            
 
             this.adjustToPrecision();
             
             this.applyMasksAndClips();
         
             this.clipPathsUsingVisibility();
-            
+                    
+            // center and scale the shapes
+            this.rescaleAndCenter(options.objectWidth - (options.baseBuffer * 2));
+
             // add possible missing vertices along the paths
             // when two shapes are sharing a common edge
             this.addMissingPoints();

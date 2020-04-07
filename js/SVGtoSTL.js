@@ -90,9 +90,6 @@ function getExtrudedSvgObject(svgStructure, options) {
     // load svg paths into a scene (discretize the curves, to only manipulate polygons)
     var scene = new SVG3DScene(svgStructure.getPaths(), depths, 
                                svgStructure.getSilhouette());
-
-    // center and scale the shapes
-    scene.rescaleAndCenter(options.objectWidth - (options.baseBuffer * 2));
         
     // stick similar curves if required
     if (options.mergeDistance > 0) {
@@ -191,40 +188,7 @@ class SVG3DScene {
     }
     
 
-    
-    getBoundsOfShapes() {
-        return Box.fromShapes(this.paths);
-    }
-    
 
-
-
-    // center and rescale to match the desired width
-    rescaleAndCenter(width) {
-        var bbox = this.getBoundsOfShapes();
-        var ratio = width / (bbox.right - bbox.left);
-        var center = bbox.center();
-        // rescale and center paths
-        for(var i = 0; i < this.paths.length; ++i) {
-            for(var j = 0; j < this.paths[i].length; ++j) {
-                for(var k = 0; k < this.paths[i][j].length; ++k) {
-                    this.paths[i][j][k] = [(this.paths[i][j][k][0] - center[0]) * ratio, 
-                                           (this.paths[i][j][k][1] - center[1]) * ratio];
-                }
-            }
-        }
-        // rescale and center silhouette
-       for(var i = 0; i < this.silhouette.length; ++i) {
-            for(var j = 0; j < this.silhouette[i].length; ++j) {
-                for(var k = 0; k < this.silhouette[i][j].length; ++k) {
-                    this.silhouette[i][j][k] = [(this.silhouette[i][j][k][0] - center[0]) * ratio, 
-                                            (this.silhouette[i][j][k][1] - center[1]) * ratio];
-                }
-            }
-        }
-
-                
-    }
 
     getSimilarPointsToFirst(point, ii, jj, kk, distance) {
         var sim = { middle: point, pts: [[ii, jj, kk]] };
