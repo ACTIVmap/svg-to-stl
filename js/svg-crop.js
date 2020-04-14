@@ -415,7 +415,7 @@ function getFillColor(elem) {
  *  
  */
 class SVGGroup2D {
-    constructor(elem, root = null) {
+    constructor(elem, root = null, forceClip = false) {
         if (root == null)
             root = elem;
         
@@ -425,7 +425,8 @@ class SVGGroup2D {
         this.mask = null;
         
         
-        if (elem && elem.children && elem.children.length) {
+        if (elem && elem.children && elem.children.length && (forceClip || !(elem instanceof SVGClipPathElement) && !(elem instanceof SVGMaskElement))) {
+            console.log("on se chauffe avec", elem);
             this.content = [];
             for(var e = 0; e != elem.children.length; ++e) {
                 var child = new SVGGroup2D(elem.children[e], root);
