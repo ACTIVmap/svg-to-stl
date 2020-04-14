@@ -142,7 +142,7 @@ function clockwise(path) {
     
     if ((path[0][0] != path[path.length - 1][0]) ||
         (path[0][1] != path[path.length - 1][1])) {
-        console.log("ERROR: one path is not defined as a loop", path);
+        console.log("ERROR: one path is not defined as a loop", JSON.stringify(path));
     }
     var sum = 0;
     for(var i = 1; i != path.length; ++i) {
@@ -712,7 +712,7 @@ class SVGCrop {
             this.adjustToPrecision();
             if (this.options.wantBasePlate != null)
                 this.addBasePlateInternal();
-                        
+
             this.clipShapesUsingVisibility();
                     
             // center and scale the shapes
