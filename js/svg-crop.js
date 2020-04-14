@@ -453,7 +453,7 @@ class SVGGroup2D {
             var newShapes = path.toShapes(this.svgWindingIsCW);
 
             // discretize them, and convert them to a basic list format
-            newShapes = this.convertToList(newShapes, 50);
+            newShapes = SVGGroup2D.convertToList(newShapes, 50);
 
             // possibly split the original path in multiple shapes
             var shapes = TreeNode.splitIntoShapes(newShapes, svgColor);
@@ -525,29 +525,30 @@ class SVGGroup2D {
         return result;
     }
     
-    // TODO: should be a class method and not an instance method    
-    convertToList(shapes, steps) {
-        var result = [];
-        
-        for (var j = 0; j < shapes.length; j++) {
-            var pts = shapes[j].extractPoints(steps);
-            var paths = [pts.shape].concat(pts.holes);
-                        
-            for(var a = 0; a != paths.length; ++a) {
-                for(var b = 0; b != paths[a].length; ++b) {
-                    if (this.precision >= 0)
-                        paths[a][b] = [parseFloat(paths[a][b].x.toFixed(this.precision)), 
-                                       parseFloat(paths[a][b].y.toFixed(this.precision))];
-                    else
-                        paths[a][b] = [parseFloat(paths[a][b].x), parseFloat(paths[a][b].y)];
-               }
-            }
-            result.push(paths);
-        }
-        return result;
-    }
     
 }
+
+SVGGroup2D.convertToList = function(shapes, steps) {
+    var result = [];
+    
+    for (var j = 0; j < shapes.length; j++) {
+        var pts = shapes[j].extractPoints(steps);
+        var paths = [pts.shape].concat(pts.holes);
+                    
+        for(var a = 0; a != paths.length; ++a) {
+            for(var b = 0; b != paths[a].length; ++b) {
+                if (this.precision >= 0)
+                    paths[a][b] = [parseFloat(paths[a][b].x.toFixed(this.precision)), 
+                                    parseFloat(paths[a][b].y.toFixed(this.precision))];
+                else
+                    paths[a][b] = [parseFloat(paths[a][b].x), parseFloat(paths[a][b].y)];
+            }
+        }
+        result.push(paths);
+    }
+    return result;
+}
+
 
 class SVGCrop {
 
