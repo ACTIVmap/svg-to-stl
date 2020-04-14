@@ -564,37 +564,28 @@
         var expr = new RegExp("id=[\"\'][a-zA-Z][A-Za-z0-9\-\:\.]*[\"\']", 'g');
         return string.replace(expr, "");
     }
-    
-    function hasTwin(list, i) {
-    
-        for(var j = 0; j != list.length; ++j) {
-            if (i != j) {
-                if (list[j].outerHTML) {
-                    var xml1 = removeID(list[i].outerHTML);
-                    var xml2 = removeID(list[j].outerHTML);
-                    if (removeID(list[i].outerHTML) == removeID(list[j].outerHTML)) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-    
+
     function removeTwins(elem) {
         if (elem && elem.childNodes && elem.childNodes.length) {
             // first remove twins
-            for(var i = 0; i != elem.childNodes.length; ) {
-                var remove = false;
-                
-                if (elem.childNodes[i].outerHTML && hasTwin(elem.childNodes, i)) {
-                    elem.removeChild(elem.childNodes[i]);
-                    remove = true;
+            var childTXT = new Set(); // to speedup search
+            var toBeRemoved = []; // to preserve ordering
+            for(var i = 0; i != elem.childNodes.length; ++i) {
+                var html = elem.childNodes[i].outerHTML;
+                if (html) {
+                    html = removeID(html);
+                    if (childTXT.has(html)) {
+                        toBeRemoved.push(elem.childNodes[i]);
+                    }
+                    else {
+                        childTXT.add(html);
+                    }
                 }
-                                
-                if (!remove)
-                    i += 1;
             }
+            for(var child of toBeRemoved) {
+                elem.removeChild(child);
+            }
+            
             // then remove twins in the childen
             for(var i = 0; i != elem.childNodes.length; ++i) {
                 removeTwins(elem.childNodes[i]);
