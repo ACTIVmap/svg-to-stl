@@ -20,7 +20,8 @@ There are example SVG files in [example-svg/](https://github.com/jmtrivial/svg-t
   - Optionally tune some parameters to bypass some limitations of the reconstruction algorithms
 
 ### Known problems
-  - SVG mask and clipPath are not supported. Unfortunally, Adobe Illustrator produces SVG with such elements. If you are used to design using clipping masks, please remove them from you files before importing it in SVG-to-STL (for example using *Expand* then *Crop button* from the *Pathfinder* panel). 
+  - SVG mask are not supported. Unfortunally, Adobe Illustrator may produce SVG with such elements. If you are used to design using masks, please remove them from you files before importing it in SVG-to-STL (for example using *Expand* then *Crop button* from the *Pathfinder* panel). 
+  - This tool is only using the fill color, and not the border color. In case of non-closed shapes, they will be ignored.
   - SVG text elements are not supported. To render text, you need to convert the text to "outlines" or "paths" before saving the SVG file.
   - Some configurations may produce non closed meshes (exemple-07.svg file). This problem is due to [a bug](https://github.com/w8r/martinez/issues/124) identified in Martinez, that will be corrected in a near future.
 
