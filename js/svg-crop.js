@@ -376,7 +376,7 @@ class TreeNode {
 // following geojson specifications: https://geojson.org/geojson-spec.html#id7
 // A polygon is defined by a list of rings, the first one being the contours,
 // and the following the holes
-TreeNode.splitIntoShapes = function(paths, color) {
+TreeNode.splitIntoShapes = function(paths, color, ignoreNonPolygons = true) {
         
         if (paths.length == 0)
             return paths;
@@ -385,13 +385,19 @@ TreeNode.splitIntoShapes = function(paths, color) {
         
         if (typeof paths[0][0][0] === 'number') {
             for(var i = 0; i < paths.length; ++i) {
+                if (ignoreNonPolygons || (paths[i][0][0] == paths[i][paths[i].length - 1][0] &&
+                                          paths[i][0][1] == paths[i][paths[i].length - 1][1])) {
                     tree.addPolygon(paths[i]);
+                }
             }
         }
         else {
             for(var i = 0; i < paths.length; ++i) {
                 for(var j = 0; j < paths[i].length; ++j) {
-                    tree.addPolygon(paths[i][j]);
+                    if (ignoreNonPolygons || (paths[i][j][0][0] == paths[i][j][paths[i][j].length - 1][0] &&
+                                          paths[i][j][0][1] == paths[i][j][paths[i][j].length - 1][1])) {
+                        tree.addPolygon(paths[i][j]);
+                    }
                 }
             }
             
@@ -461,7 +467,7 @@ class SVGGroup2D {
             newShapes = SVGGroup2D.convertToList(newShapes, 50);
 
             // possibly split the original path in multiple shapes
-            var shapes = TreeNode.splitIntoShapes(newShapes, svgColor);
+            var shapes = TreeNode.splitIntoShapes(newShapes, svgColor, false);
             if (shapes.length == 0) {
                 // empty shape
                 return;
@@ -672,13 +678,10 @@ class SVGCrop {
         // produce a list of shapes (hierarchical structure is only required
         // for mask and clip)
         this.shapes = this.svgStructure.flatten();
-        
         this.precision *= this.getScale();
         
         if (this.shapes.length > 0) { 
- 
             this.adjustToPrecision();
-            
             if (this.options.wantBasePlate != null)
                 this.addBasePlateInternal();
             
@@ -785,6 +788,7 @@ class SVGCrop {
                 
         
         if (this.shapes.length > 0) { 
+            
             // use inverse order to crop shapes according to their visibility
             for (var i = this.shapes.length - 1; i >= 0; i--) {
                 var curShape = this.shapes[i];
