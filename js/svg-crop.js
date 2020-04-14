@@ -282,6 +282,11 @@ class SVGShape2D {
         var newShapes = martinez.diff(this.toList(), SVGShape2D.shapesToList(shapes));
         return TreeNode.splitIntoShapes(newShapes, this.color);
     }
+    
+    intersection(shapes) {
+        var newShapes = martinez.intersection(this.toList(), SVGShape2D.shapesToList(shapes));
+        return TreeNode.splitIntoShapes(newShapes, this.color);
+    }
 }
 
 SVGShape2D.shapesToList = function(shapes) {
@@ -497,10 +502,59 @@ class SVGGroup2D {
         return this.content == null && this.shape == null;
     }
     
+    
+    applyClipping(clipPath) {
+        if (this.shape) {
+            // apply intersection
+            var res = this.shape.intersection(clipPath);
+            if (res.length > 1) {
+                // if multiple elements, create a group
+                this.content = res;
+            }
+            else if (res.length == 1) {
+                // otherwise, the shape is the first one
+                this.shape = res[0];
+            }
+            else
+                // a clipping can remove all the parts of a shape
+                this.shape = null;
+        }
+        if (this.content) {
+            for(var c of this.content) {
+                c = c.applyClipping(clipPath);
+            }
+        }
+    }
+    
+    applyClippings() {
+        if (this.content != null) {
+            // apply first the clippings inside the shape
+            for(var c of this.content) {
+                c.applyClippings();
+            }
+        }
+        
+        // if the current node has a clipping path, apply it 
+        if (this.clipPath) {
+            console.log("avant", JSON.stringify(this));
+            console.log("on va clipper avec", JSON.stringify(this.clipPath));
+            // get a flat description of clipPath
+            var clipFlat = this.clipPath.getShapesList();
+            // apply this clipping path
+            this.applyClipping(clipFlat);
+            // remove it from the data structure
+            this.clipPath = null;
+            console.log("apres", JSON.stringify(this));
+        }
+        
+    }
 
     flatten() {
-        // first apply mask and clips
-        // TODO
+        
+        // first apply clippings
+        this.applyClippings();
+        
+        // TODO: handle masks
         
         // then return shape list
         return this.getShapesList();
