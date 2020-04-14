@@ -487,7 +487,7 @@ class SVGGroup2D {
             var id = getIDFromURL(elem.getAttribute("mask"));
             if (id) {
                 var newElem = root.getElementById(id);
-                this.clipPath = new SVGGroup2D(newElem, root, true);
+                this.mask = new SVGGroup2D(newElem, root, true);
             }
             
         }
