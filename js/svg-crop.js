@@ -414,7 +414,7 @@ function getFillColor(elem) {
     var regex = /([\w-]*)\s*:\s*([^;]*)/g;
     var match, properties={};
     while(match = regex.exec($(elem).attr("style"))) properties[match[1].trim()] = match[2].trim();
-    return "fill" in properties ? properties["fill"] : "#000000";
+    return "fill" in properties ? properties["fill"] : "";
 }
 
 function getIDFromURL(url) {
@@ -442,6 +442,7 @@ class SVGGroup2D {
         this.content = null;
         this.clipPath = null;
         this.mask = null;
+        this.svgColor = null;
         
         if (elem && elem.children && elem.children.length && (forceClip || !(elem instanceof SVGClipPathElement) && !(elem instanceof SVGMaskElement))) {
             this.content = [];
@@ -450,12 +451,21 @@ class SVGGroup2D {
                 if (!child.empty())
                     this.content.push(child);
             }
+            this.svgColor = getFillColor(elem);
+
+            if (this.svgColor != "") {
+                for(var c of this.content) {
+                    c.inheritColor(this.svgColor);
+                }
+            }
+            else
+                this.svgColor = null;
         }
         else if (elem instanceof SVGPathElement) {
             // read SVG path
             var svgPath = elem.getAttribute("d");
             
-            var svgColor = getFillColor(elem);
+            this.svgColor = getFillColor(elem);
             
             // Turn SVG path into a three.js shape (that can be composed of a list of shapes)
             var path = d3.transformSVGPath(svgPath);
@@ -467,7 +477,7 @@ class SVGGroup2D {
             newShapes = SVGGroup2D.convertToList(newShapes, 50);
 
             // possibly split the original path in multiple shapes
-            var shapes = TreeNode.splitIntoShapes(newShapes, svgColor, false);
+            var shapes = TreeNode.splitIntoShapes(newShapes, this.svgColor, false);
             if (shapes.length == 0) {
                 // empty shape
                 return;
@@ -501,6 +511,23 @@ class SVGGroup2D {
                 this.mask = new SVGGroup2D(newElem, root, true);
             }
             
+        }
+    }
+    
+    inheritColor(color) {
+        if (!this.svgColor) {
+            if (this.shape) {
+                if (this.shape.color == "")
+                    this.shape.color = color;
+            }
+            else {
+                if (this.content) {
+                    for(var c of this.content) {
+                        if (c.color == "")
+                            c.color = color;
+                    }
+                }
+            }
         }
     }
     
@@ -664,12 +691,12 @@ class SVGCrop {
         var center = bbox.center();
         // rescale and center paths
         
-        for(var s of this.shapes) {
-            s.rescaleAndCenter(ratio, center);
+        for(var sh of this.shapes) {
+            sh.rescaleAndCenter(ratio, center);
         }
 
-        for(var s of this.silhouette) {
-            s.rescaleAndCenter(ratio, center);
+        for(var si of this.silhouette) {
+            si.rescaleAndCenter(ratio, center);
         }
     }
           
@@ -684,7 +711,7 @@ class SVGCrop {
             this.adjustToPrecision();
             if (this.options.wantBasePlate != null)
                 this.addBasePlateInternal();
-            
+                        
             this.clipShapesUsingVisibility();
                     
             // center and scale the shapes
