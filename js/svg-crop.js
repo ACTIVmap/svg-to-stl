@@ -605,7 +605,7 @@ class SVGCrop {
 
     
     constructor(svgID, options, viewBox) {
-        this.svgNode = document.getElementById('uploadedSVG');
+        this.svgNode = document.getElementById(svgID);
         this.options = options;
         this.silhouette = null;
         this.svgWindingIsCW = options.svgWindingIsCW;
