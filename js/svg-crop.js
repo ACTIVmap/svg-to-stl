@@ -406,6 +406,14 @@ function getFillColor(elem) {
     return "fill" in properties ? properties["fill"] : "#000000";
 }
 
+function getIDFromURL(url) {
+    var expr = new RegExp("[uU][rR][lL][ ]*\\(#[ ]*[\"\']?([A-Za-z][A-Za-z0-9\-\:\.]*)[\"\']?[ ]*\\)");
+    var match = expr.exec(url);
+    if (match.length == 2)
+        return match[1];
+    else
+        return null;
+}
 
 /* 
  * A SVG group is defined by:
@@ -424,9 +432,7 @@ class SVGGroup2D {
         this.clipPath = null;
         this.mask = null;
         
-        
         if (elem && elem.children && elem.children.length && (forceClip || !(elem instanceof SVGClipPathElement) && !(elem instanceof SVGMaskElement))) {
-            console.log("on se chauffe avec", elem);
             this.content = [];
             for(var e = 0; e != elem.children.length; ++e) {
                 var child = new SVGGroup2D(elem.children[e], root);
@@ -466,11 +472,25 @@ class SVGGroup2D {
             }
         }
         else {
-            // TODO: add elements to ignore
-            console.log("ERROR: svg element not handled - " + elem.toString());
+            console.log("WARNING: svg element not handled - " + elem);
         }
         
-        // TODO: add clipPath and mask
+        if (elem.hasAttribute("clip-path")) {
+            var id = getIDFromURL(elem.getAttribute("clip-path"));
+            if (id) {
+                var newElem = root.getElementById(id);
+                this.clipPath = new SVGGroup2D(newElem, root, true);
+            }
+            
+        }
+        if (elem.hasAttribute("mask")) {
+            var id = getIDFromURL(elem.getAttribute("mask"));
+            if (id) {
+                var newElem = root.getElementById(id);
+                this.clipPath = new SVGGroup2D(newElem, root, true);
+            }
+            
+        }
     }
     
     empty() {
