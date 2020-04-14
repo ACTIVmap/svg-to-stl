@@ -536,15 +536,12 @@ class SVGGroup2D {
         
         // if the current node has a clipping path, apply it 
         if (this.clipPath) {
-            console.log("avant", JSON.stringify(this));
-            console.log("on va clipper avec", JSON.stringify(this.clipPath));
             // get a flat description of clipPath
             var clipFlat = this.clipPath.getShapesList();
             // apply this clipping path
             this.applyClipping(clipFlat);
             // remove it from the data structure
             this.clipPath = null;
-            console.log("apres", JSON.stringify(this));
         }
         
     }
