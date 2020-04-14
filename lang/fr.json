@@ -53,7 +53,7 @@
     "bboxIs": "La boîte englobante est",
     "meshContains": "Ce maillage contient %1 sommets et %2 faces.",
     "language": "Langue",
-    "errorMSG": "Ce maillage 3D ne semble <strong>pas valide pour l'impression 3D</strong>, à cause d'une erreur dans le processus de reconstruction. Envoyez s'il vous plaît le fichier SVG d'entrée à <a href=\"mailto:contact.activmap@isima.fr\">contact.activmap@isima.fr</a>. Nous vous enverrons en retour une version corrigée du maillage, et cela nous aidera à corriger le disfonctionnement que vous avez rencontré.",
+    "errorMSG": "Ce maillage 3D ne semble <strong>pas valide pour l'impression 3D</strong>, à cause d'une erreur dans le processus de reconstruction. Envoyez s'il vous plaît le fichier SVG d'entrée à <a href=\"mailto:contact.activmap@isima.fr\">contact.activmap@isima.fr</a>. Nous vous enverrons en retour une version corrigée du maillage, et cela nous aidera à corriger le dysfonctionnement que vous avez rencontré. Une solution de contournement consiste généralement à ajouter un petit epsilon (typiquement 0.1) à la marge du support, ou à ajuster un peu les paramètres de précision.",
     "errorXML": "<strong>Erreur&nbsp;:</strong> le fichier SVG n'est pas valide selon XML.",
     "errorNotSVG": "<strong>Erreur&nbsp;:</strong> le fichier sélectionné n'est pas au format SVG."
 

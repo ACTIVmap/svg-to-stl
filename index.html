@@ -379,7 +379,7 @@
         var errorMsg = "";
         
         if (!geom.isValidMesh) {
-            errorMsg = "<div class=\"alert alert-danger\" role=\"alert\">" + translation("errorMSG", "This 3D mesh seems to be <strong>not valid for 3D printing</strong>, due to an error in the reconstruction process. Please send the input SVG file to <a href=\"mailto:contact.activmap@isima.fr\">contact.activmap@isima.fr</a>. We will send you back a corrected version of the mesh, and it will help us fix the bug you encountered.") + "</div>";
+            errorMsg = "<div class=\"alert alert-danger\" role=\"alert\">" + translation("errorMSG", "This 3D mesh seems to be <strong>not valid for 3D printing</strong>, due to an error in the reconstruction process. Please send the input SVG file to <a href=\"mailto:contact.activmap@isima.fr\">contact.activmap@isima.fr</a>. We will send you back a corrected version of the mesh, and it will help us fix the bug you encountered. A workaround usually consists in adding a small epsilon (e.g. 0.1) to the base buffer, or to tune a bit the accuracy parameters.") + "</div>";
         }
         
         $("#meshText").html(errorMsg + translation("meshContains", "This mesh contains %1 vertices and %2 faces.").replace("%1", geom.vertices).replace("%2", geom.faces) + " <br />" + translation("bboxIs", "Its bounding box is") + " ["
