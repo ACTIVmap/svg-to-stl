@@ -18,7 +18,7 @@ function getMaximumSize(mesh) {
 }
 
 
-// Takes an SVG string, and returns a scene to render as a 3D STL
+// Takes an SVG structure, and returns a scene to render as a 3D STL
 function renderObject(svgStructure, scene, group, camera, options) {
     console.log("Rendering 3D object...");
     // Solid Color
@@ -88,7 +88,7 @@ function getExtrudedSvgObject(svgStructure, options) {
     }
 
     // load svg paths into a scene (discretize the curves, to only manipulate polygons)
-    var scene = new SVG3DScene(svgStructure.getPaths(), depths, 
+    var scene = new SVG3DScene(svgStructure.getShapes(), depths, 
                                svgStructure.getSilhouette());
         
     // stick similar curves if required
@@ -123,10 +123,6 @@ function edgesContains(listEdges, e) {
             return false;
 };
         
-function truncator(x, precision) {    
-    var npow = Math.pow(10, precision);
-    return Math.round(x * npow) / npow;
-}
 
 function distanceSqrd(a, b) {
     var c = a[0] - b[0];
@@ -179,10 +175,9 @@ function toTHREE(points) {
  **/
 class SVG3DScene {
     
-    // discretize paths and convert it to the desired format
-    constructor(paths, depths, silhouette) {
-        this.paths = paths;
-        this.silhouette = silhouette;
+    constructor(shapes, depths, silhouette) {
+        this.paths = SVGShape2D.shapesToList(shapes);
+        this.silhouette = SVGShape2D.shapesToList(silhouette);
         this.depths = depths;
         
     }

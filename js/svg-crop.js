@@ -66,27 +66,25 @@ Box.fromPaths = function(paths) {
 };
 
 
-Box.fromShapes = function(shapes) {
-    if (shapes.length == 0)
-        return Box.invalid();
+Box.fromShape = function(shape) {
+    var result = Box.fromPath(shape.polyline);
     
-    var result = Box.fromPaths(shapes[0]);
-    
-    for(var i = 1; i < shapes.length; ++i) {
-        result.add(Box.fromPaths(shapes[i]));
+    if (shape.holes.length > 0) {
+        result.add(Box.fromPaths(shape.holes));
     }
     return result;
 
 };
 
-Box.fromXY = function(vertices) {
-    if (vertices.length == 0)
+Box.fromShapes = function(shapes) {
+    if (shapes.length == 0)
         return Box.invalid();
     
-    var result = new Box(vertices[0].x, vertices[0].x, vertices[0].y, vertices[0].y);
     
-    for(var i = 1; i != vertices.length; ++i) {
-        result.addPoint([vertices[i].x, vertices[i].y]);
+    var result = Box.fromShape(shapes[0]);
+    
+    for(var i = 1; i < shapes.length; ++i) {
+        result.add(Box.fromShape(shapes[i]));
     }
     return result;
 }
@@ -102,6 +100,18 @@ Box.fromPath = function(path) {
     return result;
 };
 
+
+Box.fromXY = function(vertices) {
+    if (vertices.length == 0)
+        return Box.invalid();
+    var result = new Box(vertices[0].x, vertices[0].x, vertices[0].y, vertices[0].y);
+    
+    for(var i = 1; i != vertices.length; ++i) {
+        result.addPoint([vertices[i].x, vertices[i].y]);
+    }
+    return result;
+
+}
 
 
 function inside(point, vs) {
@@ -145,6 +155,144 @@ function clockwise(path) {
 }
 
 
+function addPointIfMissing(path, point, precision) {
+    var epsilon = 0.1 ** (precision + 4);
+    if (path.length <= 1)
+        return path;
+    
+    for(var i = 1; i != path.length; ++i) {
+        var p1 = path[i - 1];
+        var p2 = path[i];
+        var dist = distanceSqrdPointSegment(point, p1, p2, epsilon);
+        if ((dist >= 0) && (dist <= epsilon)) {
+            var d1 = distanceSqrd(point, p1);
+            if (d1 > epsilon) {
+                var d2 = distanceSqrd(point, p2);
+                if (d2 > epsilon) {
+                    path.splice(i, 0, point);
+                    return path;
+                }
+            }
+        }
+    }
+    
+    return path;
+    
+}
+
+function truncator(x, precision) {    
+    var npow = Math.pow(10, precision);
+    return Math.round(x * npow) / npow;
+}
+
+
+/*
+ * A SVG shape is defined by:
+ *  * a non closed polyline
+ *  * a contour, and a (possibly empty) list of inner polygons (=holes)
+ *  * a fill color
+ * */
+class SVGShape2D {
+    
+    constructor(polyline, fillColor, holes = []) {
+        this.polyline = polyline;
+        this.holes = holes;
+        this.color = fillColor;
+    }
+    
+    toList() {
+        return [this.polyline].concat(this.holes);
+    }
+    
+    isPolygon() {
+        return ((this.polyline[0][0] == this.polyline[this.polyline - 1][0]) &&
+                (this.polyline[0][1] == this.polyline[this.polyline - 1][1]));
+    }
+    
+    adjustPathsToPrecision(precision) {
+        if (precision >= 0) {
+            for(var i = 0; i < this.holes.length; ++i) {
+                for(var j = 0; j < this.holes[i].length; ++j) {
+                    this.holes[i][j] = [truncator(this.holes[i][j][0], precision), 
+                                            truncator(this.holes[i][j][1], precision)];
+                }
+            }
+            
+            for(var j = 0; j < this.polyline.length; ++j) {
+                this.polyline[j] = [truncator(this.polyline[j][0], precision), 
+                                    truncator(this.polyline[j][1], precision)];
+            }
+        }
+    }
+    
+    removeConsecutiveDoubles() {
+        for(var i = 0; i < this.holes.length; ++i) {
+            this.holes[i] = this.holes[i].filter(function(item, pos, arr){  return pos === 0 || 
+                                                                                    item[0] !== arr[pos - 1][0] ||
+                                                                                    item[1] !== arr[pos - 1][1]; });
+        }
+        
+
+        this.polyline = this.polyline.filter(function(item, pos, arr){  return pos === 0 || 
+                                                                                      item[0] !== arr[pos - 1][0] ||
+                                                                                      item[1] !== arr[pos - 1][1]; });
+    }
+
+    rescaleAndCenter(ratio, center) {
+       
+        for(var k = 0; k < this.polyline.length; ++k) {
+            this.polyline[k] = [(this.polyline[k][0] - center[0]) * ratio, 
+                                (this.polyline[k][1] - center[1]) * ratio];
+        }
+        
+        // rescale and center 
+        for(var j = 0; j < this.holes.length; ++j) {
+            for(var k = 0; k < this.holes[j].length; ++k) {
+                this.holes[j][k] = [(this.holes[j][k][0] - center[0]) * ratio, 
+                                        (this.holes[j][k][1] - center[1]) * ratio];
+            }
+        }
+    }
+    
+    // if one point of the other shape is in an edge of the current shape, add it
+    addMissingPointsFromShape(shape, precision) {
+        
+        // for each path of this shape
+        this.addMissingPointsFromPath(shape.polyline, precision);
+        for(var h of shape.holes) {
+            this.addMissingPointsFromPath(h, precision);
+        }
+    
+    }
+    
+    addMissingPointsFromPath(path, precision) {
+        for(var p of path) {
+            this.polyline = addPointIfMissing(this.polyline, p, precision);
+            for(var x = 0; x != this.holes.length; ++x)
+                this.holes[x] = addPointIfMissing(this.holes[x], p, precision);
+        }        
+    }
+
+    union(shapes) {
+        var newShapes = martinez.union(this.toList(), SVGShape2D.shapesToList(shapes));
+        return TreeNode.splitIntoShapes(newShapes, "union");
+    }
+    
+    diff(shapes) {
+        var newShapes = martinez.diff(this.toList(), SVGShape2D.shapesToList(shapes));
+        return TreeNode.splitIntoShapes(newShapes, this.color);
+    }
+}
+
+SVGShape2D.shapesToList = function(shapes) {
+    var result = [];
+    for(var s of shapes) {
+        result.push(s.toList());
+    }
+    return result;
+}
+
+
 /**
  * class TreeNode is a hierarchical structure to detect
  * inclusions between polygons.
@@ -153,9 +301,10 @@ function clockwise(path) {
  * 
  * */
 class TreeNode {
-        constructor(polygon, children = []) {
+        constructor(polygon, color, children = []) {
             this.polygon = polygon;
             this.children = children;
+            this.color = color;
         }
 
         addPolygon(polygon) {
@@ -163,7 +312,7 @@ class TreeNode {
                 return;
             }
             if (this.children.length == 0) {
-                this.children.push(new TreeNode(polygon, []));
+                this.children.push(new TreeNode(polygon, this.color, []));
             }
             else {
                 var found = false;
@@ -181,12 +330,12 @@ class TreeNode {
                     var insideChildren = this.children.filter(v => inside(v.polygon[0], polygon));
                     if (insideChildren.length > 0) {
                         this.children = this.children.filter(v => !inside(v.polygon[0], polygon));
-                        this.children.push(new TreeNode(polygon, insideChildren)); 
+                        this.children.push(new TreeNode(polygon, this.color, insideChildren)); 
                     }
                     else {
                         // the polygon is not contained in any child
                         // thus it is a brother
-                        this.children.push(new TreeNode(polygon, []));
+                        this.children.push(new TreeNode(polygon, this.color, []));
                     }
                     
                 }
@@ -207,8 +356,7 @@ class TreeNode {
                     if (clockwise(this.children[i].polygon)) {
                         this.children[i].polygon.reverse();
                     }
-                    result.push([this.children[i].polygon].concat(holes));
-                    
+                    result.push(new SVGShape2D(this.children[i].polygon, this.color, holes));
                     for(var j = 0; j < this.children[i].children.length; ++j) {
                         result = result.concat(this.children[i].children[j].flatten());
                     }
@@ -219,16 +367,16 @@ class TreeNode {
         }
 };
 
-// given a list of paths (or a list of list of paths), it split it into a list of polygons.
+// given a list of paths (or a list of list of paths), it split it into a list of shapes.
 // following geojson specifications: https://geojson.org/geojson-spec.html#id7
 // A polygon is defined by a list of rings, the first one being the contours,
 // and the following the holes
-TreeNode.splitIntoShapes = function(paths) {
+TreeNode.splitIntoShapes = function(paths, color) {
         
         if (paths.length == 0)
             return paths;
         
-        var tree = TreeNode.root();
+        var tree = TreeNode.root(color);
         
         if (typeof paths[0][0][0] === 'number') {
             for(var i = 0; i < paths.length; ++i) {
@@ -246,198 +394,120 @@ TreeNode.splitIntoShapes = function(paths) {
         return tree.flatten();
     }
 
-TreeNode.root = function() {
-        return new TreeNode(null, []);
+TreeNode.root = function(color = "") {
+        return new TreeNode(null, color, []);
 }
 
-class SVGCrop {
 
-    
-    constructor(svgID, options, viewBox) {
-        this.svgNode = document.getElementById('uploadedSVG');
-        this.options = options;
-        this.paths = null;
-        this.colors = null;
-        this.silhouette = null;
-        this.svgPaths = null;
-        this.svgColors = null;
-        this.svgWindingIsCW = options.svgWindingIsCW;
-        this.viewBox = viewBox;
-        this.precision = this.options.discretization ? this.options.precision * this.getScale() : -1;
-        
-    }
+function getFillColor(elem) {
+    var regex = /([\w-]*)\s*:\s*([^;]*)/g;
+    var match, properties={};
+    while(match = regex.exec($(elem).attr("style"))) properties[match[1].trim()] = match[2].trim();
+    return "fill" in properties ? properties["fill"] : "#000000";
+}
 
-    loadSVG() {
-        // TODO: add support of clip-path and masks
-        if (this.svgPaths == null)
-            this.svgPaths = $("path", this.svgNode).map(function(){return $(this).attr("d");}).get();
-        
-        if (this.svgColors == null)
-            this.svgColors = $("path", this.svgNode).map(
-                function(){ 
-                        var regex = /([\w-]*)\s*:\s*([^;]*)/g;
-                        var match, properties={};
-                        while(match=regex.exec($(this).attr("style"))) properties[match[1].trim()] = match[2].trim();
-                        return "fill" in properties ? properties["fill"] : "#000000";
-                    }
-            ).get();
-    }
-    
-    addPointIfMissing(path, point) {
-        var epsilon = 0.1 ** (this.precision + 4);
-        if (path.length <= 1)
-            return path;
-        
-        for(var i = 1; i != path.length; ++i) {
-            var p1 = path[i - 1];
-            var p2 = path[i];
-            var dist = distanceSqrdPointSegment(point, p1, p2, epsilon);
-            if ((dist >= 0) && (dist <= epsilon)) {
-                var d1 = distanceSqrd(point, p1);
-                if (d1 > epsilon) {
-                    var d2 = distanceSqrd(point, p2);
-                    if (d2 > epsilon) {
-                        path.splice(i, 0, point);
-                        return path;
-                    }
-                }
-            }
-        }
-        
-        return path;
-        
-    }
-    
-    
-    addMissingPoints() {
-        // for each path of each shape
-        for(var i = 0; i != this.paths.length; ++i) {
-            for(var j = 0; j != this.paths[i].length; ++j) {
-                // add possible vertices from any other shape
-                for(var ii = 0; ii != this.paths.length; ++ii) {
-                    if (ii != i) {
-                        for(var jj = 0; jj != this.paths[ii].length; ++jj) {
-                            for(var kk = 0; kk != this.paths[ii][jj].length; ++kk) {
-                                this.paths[i][j] = this.addPointIfMissing(this.paths[i][j], this.paths[ii][jj][kk]);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-          
-    adjustPathsToPrecision(paths) {
-        if (this.precision >= 0) {
-            for(var i = 0; i < paths.length; ++i) {
-                for(var j = 0; j < paths[i].length; ++j) {
-                    for(var k = 0; k < paths[i][j].length; ++k) {
-                        paths[i][j][k] = [truncator(paths[i][j][k][0], this.precision), 
-                                               truncator(paths[i][j][k][1], this.precision)];
-                    }
-                }
-            }
-        }
-    }
-    
-    removeConsecutiveDoubles(paths) {
-        for(var i = 0; i < paths.length; ++i) {
-            for(var j = 0; j < paths[i].length; ++j) {
-                paths[i][j] = paths[i][j].filter(function(item, pos, arr){  return pos === 0 || 
-                                                                                item[0] !== arr[pos - 1][0] ||
-                                                                                item[1] !== arr[pos - 1][1]; });
-            }
-        }
-        
-    }
-    
-    adjustToPrecision() {
-        if (this.paths != null) {
-                this.adjustPathsToPrecision(this.paths);
-                this.removeConsecutiveDoubles(this.paths);
-        }
-        if (this.silhouette != null) {
-                this.adjustPathsToPrecision(this.silhouette);
-                this.removeConsecutiveDoubles(this.silhouette);
-        }
-    }
-          
-    // center and rescale to match the desired width
-    rescaleAndCenter(width) {
-        var bbox = this.getBoundsOfShapes();
-        var ratio = width / (bbox.right - bbox.left);
-        var center = bbox.center();
-        // rescale and center paths
-        for(var i = 0; i < this.paths.length; ++i) {
-            for(var j = 0; j < this.paths[i].length; ++j) {
-                for(var k = 0; k < this.paths[i][j].length; ++k) {
-                    this.paths[i][j][k] = [(this.paths[i][j][k][0] - center[0]) * ratio, 
-                                           (this.paths[i][j][k][1] - center[1]) * ratio];
-                }
-            }
-        }
-        // rescale and center silhouette
-       for(var i = 0; i < this.silhouette.length; ++i) {
-            for(var j = 0; j < this.silhouette[i].length; ++j) {
-                for(var k = 0; k < this.silhouette[i][j].length; ++k) {
-                    this.silhouette[i][j][k] = [(this.silhouette[i][j][k][0] - center[0]) * ratio, 
-                                            (this.silhouette[i][j][k][1] - center[1]) * ratio];
-                }
-            }
-        }
 
+/* 
+ * A SVG group is defined by:
+ *  * a SVGshape2D or a list of SVGgroup
+ *  * a clip-path defined as an SVG group
+ *  * a mask defined as an SVG group
+ *  
+ */
+class SVGGroup2D {
+    constructor(elem, root = null) {
+        if (root == null)
+            root = elem;
+        
+        this.shape = null;
+        this.content = null;
+        this.clipPath = null;
+        this.mask = null;
+        
+        
+        if (elem && elem.children && elem.children.length) {
+            this.content = [];
+            for(var e = 0; e != elem.children.length; ++e) {
+                var child = new SVGGroup2D(elem.children[e], root);
+                if (!child.empty())
+                    this.content.push(child);
+            }
+        }
+        else if (elem instanceof SVGPathElement) {
+            // read SVG path
+            var svgPath = elem.getAttribute("d");
+            
+            var svgColor = getFillColor(elem);
+            
+            // Turn SVG path into a three.js shape (that can be composed of a list of shapes)
+            var path = d3.transformSVGPath(svgPath);
                 
-    }
-          
-    process() {
-        if (this.svgPaths == null) {
-            this.loadSVG();
-        }
-        
-        this.paths = [];
-        this.colors = [];
-        if (this.svgPaths.length > 0) { 
-            for (var i = 0; i < this.svgPaths.length; i++) {
-                // Turn each SVG path into a three.js shape (that can be composed of a list of shapes)
-                var path = d3.transformSVGPath(this.svgPaths[i]);
-                
-                // extract shapes associated to the svg path,
-                // discretize them, and convert them to a basic list format
-                var shapes = path.toShapes(this.svgWindingIsCW);
-                // TODO: remove all this old things with steps, discretization, etc.
-                var nbAdded = this.addNewShapes(shapes, 50);
-                for(var j = 0; j != nbAdded; ++j) {
-                    this.colors.push(this.svgColors[i]);
+            // extract shapes associated to the svg path,
+            var newShapes = path.toShapes(this.svgWindingIsCW);
+
+            // discretize them, and convert them to a basic list format
+            newShapes = this.convertToList(newShapes, 50);
+
+            // possibly split the original path in multiple shapes
+            var shapes = TreeNode.splitIntoShapes(newShapes, svgColor);
+            if (shapes.length == 0) {
+                // empty shape
+                return;
+            }
+            else if (shapes.length == 1) {
+                this.shape = shapes[0];
+            }
+            else {
+                this.content = [];
+                for(var s = 0; s != shapes.length; ++s) {
+                    this.content.push(shapes[s]);
                 }
             }
-        
-            if (this.options.wantBasePlate != null)
-                this.addBasePlateInternal();
-            
-
-            this.adjustToPrecision();
-            
-            this.applyMasksAndClips();
-        
-            this.clipPathsUsingVisibility();
-                    
-            // center and scale the shapes
-            this.rescaleAndCenter(options.objectWidth - (options.baseBuffer * 2));
-
-            // add possible missing vertices along the paths
-            // when two shapes are sharing a common edge
-            this.addMissingPoints();
-            
-            // adjust to precision before any other step
-            this.adjustToPrecision();
         }
-
+        else {
+            // TODO: add elements to ignore
+            console.log("ERROR: svg element not handled - " + elem.toString());
+        }
+        
+        // TODO: add clipPath and mask
     }
     
-    // at this step, the orientation of the shape
-    // and the structure (contour + holes) are not verified
-    addNewShapes(shapes, steps) {
-        var nb = 0;
+    empty() {
+        return this.content == null && this.shape == null;
+    }
+    
+
+    flatten() {
+        // first apply mask and clips
+        // TODO
+        
+        // then return shape list
+        return this.getShapesList();
+    }
+     
+    getShapesList() {
+        var result = [];
+        
+        if (this.shape != null) {
+            result.push(this.shape);
+        }
+        else {
+            if (this.content != null) {
+                for(var v = 0; v != this.content.length; ++v) {
+                    var elems = this.content[v].getShapesList();
+                    if (elems.length != 0)
+                        result = result.concat(elems);
+                }
+            }
+        }
+        
+        return result;
+    }
+    
+    // TODO: should be a class method and not an instance method    
+    convertToList(shapes, steps) {
+        var result = [];
+        
         for (var j = 0; j < shapes.length; j++) {
             var pts = shapes[j].extractPoints(steps);
             var paths = [pts.shape].concat(pts.holes);
@@ -451,20 +521,111 @@ class SVGCrop {
                         paths[a][b] = [parseFloat(paths[a][b].x), parseFloat(paths[a][b].y)];
                }
             }
-            this.paths.push(paths);
-            ++nb;
+            result.push(paths);
         }
-        return nb;
+        return result;
     }
     
-    applyMasksAndClips() {
-        // TODO
+}
+
+class SVGCrop {
+
+    
+    constructor(svgID, options, viewBox) {
+        this.svgNode = document.getElementById('uploadedSVG');
+        this.options = options;
+        this.silhouette = null;
+        this.svgWindingIsCW = options.svgWindingIsCW;
+        this.viewBox = viewBox;
+        this.precision = this.options.discretization ? this.options.precision : -1;
+        this.shapes = null;
+        this.svgStructure = null;
     }
 
+
+    
+    addMissingPoints() {
+        
+        for(var x = 0; x != this.shapes.length; ++x) {
+            for(var y = 0; y != this.shapes.length; ++y) {
+                if (x != y) {
+                    this.shapes[x].addMissingPointsFromShape(this.shapes[y], this.precision);
+                }
+            }
+        }
+    
+    }
+          
+
+    
     getBoundsOfShapes() {
-        return Box.fromShapes(this.paths);
+        return Box.fromShapes(this.shapes);
     }
     
+    
+    adjustToPrecision() {
+        if (this.shapes != null) {
+            for(var s of this.shapes) {
+                s.adjustPathsToPrecision(this.precision);
+                s.removeConsecutiveDoubles();
+            }
+        }
+        if (this.silhouette != null) {
+            for(var s of this.silhouette) {
+                s.adjustPathsToPrecision(this.precision);
+                s.removeConsecutiveDoubles();
+            }
+        }
+    }
+          
+    // center and rescale to match the desired width
+    rescaleAndCenter(width) {
+        var bbox = this.getBoundsOfShapes();
+        var ratio = width / (bbox.right - bbox.left);
+        var center = bbox.center();
+        // rescale and center paths
+        
+        for(var s of this.shapes) {
+            s.rescaleAndCenter(ratio, center);
+        }
+
+        for(var s of this.silhouette) {
+            s.rescaleAndCenter(ratio, center);
+        }
+    }
+          
+    process() {
+        this.svgStructure = new SVGGroup2D(this.svgNode);
+        // produce a list of shapes (hierarchical structure is only required
+        // for mask and clip)
+        this.shapes = this.svgStructure.flatten();
+        
+        this.precision *= this.getScale();
+        
+        if (this.shapes.length > 0) { 
+ 
+            this.adjustToPrecision();
+            
+            if (this.options.wantBasePlate != null)
+                this.addBasePlateInternal();
+            
+            this.clipShapesUsingVisibility();
+                    
+            // center and scale the shapes
+            this.rescaleAndCenter(options.objectWidth - (options.baseBuffer * 2));
+
+            // add possible missing vertices along the paths
+            // when two shapes are sharing a common edge
+            this.addMissingPoints();
+            
+            // adjust to precision before any other step
+            this.adjustToPrecision();
+        }
+
+    }
+
+
+
 
     getScale() {
         var bbox;
@@ -539,82 +700,82 @@ class SVGCrop {
         // close the shape
         plate.push(plate[0]);
         
-        this.paths.unshift([plate]);
+        this.shapes.unshift(new SVGShape2D(plate, "base"));
         
         // add the depth of the plate
-        this.colors.unshift("base");
         options.typeDepths["base"] = 0.0;
     }
     
-    clipPathsUsingVisibility() {
+    clipShapesUsingVisibility() {
         var shapes = [];
-        var colorShapes = [];
         this.silhouette = [];
                 
         
-        if (this.paths.length > 0) { 
+        if (this.shapes.length > 0) { 
             // use inverse order to crop shapes according to their visibility
-            for (var i = this.paths.length - 1; i >= 0; i--) {
-                var curPaths = this.paths[i];
+            for (var i = this.shapes.length - 1; i >= 0; i--) {
+                var curShape = this.shapes[i];
                 var newShapes;
-                                
+                
                 if (this.silhouette.length == 0) {
-                        this.silhouette = TreeNode.splitIntoShapes(curPaths);
+                        this.silhouette = [curShape];
                         newShapes = this.silhouette;
                 }
                 else {
                     // we have to add the new shapes to the structure
-                    var sp = TreeNode.splitIntoShapes(curPaths);
-                    newShapes = martinez.diff(sp, this.silhouette);
+                    newShapes = curShape.diff(this.silhouette);
                     
-                    // the new this.silhouette is the union
-                    this.silhouette = martinez.union([curPaths], this.silhouette);
-
-                    this.silhouette = TreeNode.splitIntoShapes(this.silhouette);
+                    this.silhouette = curShape.union(this.silhouette);
                 }
-
-                // add it to the final data structure
-                var split = TreeNode.splitIntoShapes(newShapes);
-                for(var j = 0; j < split.length; ++j) {
-                    shapes.unshift(split[j]);
-                    colorShapes.unshift(this.colors[i]);
-                }
+                
+                shapes = newShapes.concat(shapes);
  
                 
             }
             
         }
         
-        this.paths = shapes;
-        this.colors = colorShapes;
+        this.shapes = shapes;
      
     }
 
     
-    getPaths() { 
-        if (this.paths == null)
+    getShapes() { 
+        if (this.shapes == null)
             this.process();
-        return this.paths; 
+        return this.shapes; 
     }
     
-    getNbPaths() { 
-        if (this.paths == null)
+    getNbShapes() { 
+        if (this.shapes == null)
             this.process();
-        return this.paths.length; 
+        return this.shapes.length; 
         
+    }
+    
+    getColors() {
+        if (this.shapes == null)
+            this.process();
+
+        var result = [];
+        for(var s of this.shapes) {
+            result.push(s.color);
+        }
+        return result;
     }
     
     
     getPalette() {
         if (this.svgColors == null)
-            this.loadSVG();
-        return this.svgColors;
-    }
-    getColors() { 
-        if (this.colors == null)
             this.process();
-        return this.colors; 
+        var result = [];
+        for(var s of this.shapes) {
+            if (s.color != "base")
+                result.push(s.color);
+        }
+        return result;
     }
+
     
     getSilhouette() { 
         if (this.silhouette == null)

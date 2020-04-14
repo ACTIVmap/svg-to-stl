@@ -495,8 +495,8 @@
     function setSVGColors(svgColors) {
         tableLines = "";
         
+        // sort the list and remove multiple instances
         list = svgColors.filter((x, i, a) => a.indexOf(x) == i).sort();
-        
         for(i = 0; i < list.length; i++) {
             if (list[i] != "") {
                 value = getSVGColor(list[i]);
@@ -628,12 +628,12 @@
           loadSVGStructureSetOptions();
 
           
-          if (svgStructure.getNbPaths() == 0)
-            $("#svgText").html(translation("nopathfound", "No path found in this image.") + "<br />" + sizeDefinition);
-          else if (svgStructure.getNbPaths() == 1)
-            $("#svgText").html(translation("onpathfound", "One path found in this image.<br />") + sizeDefinition);
+          if (svgStructure.getNbShapes() == 0)
+            $("#svgText").html(translation("noshapefound", "No shape found in this image.") + "<br />" + sizeDefinition);
+          else if (svgStructure.getNbShapes() == 1)
+            $("#svgText").html(translation("onshapefound", "One shape found in this image.<br />") + sizeDefinition);
           else
-            $("#svgText").html(svgStructure.getNbPaths() + translation("pathsfound", " paths found in this image.<br />") + sizeDefinition);
+            $("#svgText").html(svgStructure.getNbShapes() + translation("shapesfound", " shapes found in this image.<br />") + sizeDefinition);
             
           // Store the file name in a global
           fileName = uploadedFile.name;
