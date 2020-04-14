@@ -827,6 +827,14 @@ class SVGCrop {
                         newShapes = this.silhouette;
                 }
                 else {
+                    // TODO: improve the approach in case of multiple shapes with the same color:
+                    // - preserve a silhouette for each color
+                    // - for each shape compute: 
+                    //    * diff for silhouettes with different color
+                    //    * union for silhouette with same color
+                    // - at the end, compute an union of all the silhouettes
+                    
+                    
                     // we have to add the new shapes to the structure
                     newShapes = curShape.diff(this.silhouette);
                     
