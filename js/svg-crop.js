@@ -474,7 +474,7 @@ class SVGGroup2D {
             var newShapes = path.toShapes(this.svgWindingIsCW);
 
             // discretize them, and convert them to a basic list format
-            newShapes = SVGGroup2D.convertToList(newShapes, 50);
+            newShapes = SVGGroup2D.convertToList(newShapes);
 
             // possibly split the original path in multiple shapes
             var shapes = TreeNode.splitIntoShapes(newShapes, this.svgColor, false);
@@ -612,11 +612,12 @@ class SVGGroup2D {
     
 }
 
-SVGGroup2D.convertToList = function(shapes, steps) {
+SVGGroup2D.convertToList = function(shapes) {
     var result = [];
     
     for (var j = 0; j < shapes.length; j++) {
-        var pts = shapes[j].extractPoints(steps);
+        // TODO: add an heuristic to change this value
+        var pts = shapes[j].extractPoints(50);
         var paths = [pts.shape].concat(pts.holes);
                     
         for(var a = 0; a != paths.length; ++a) {
