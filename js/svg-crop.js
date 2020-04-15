@@ -453,6 +453,8 @@ class SVGGroup2D {
                         this.content.push(child);
                 }
                 this.svgColor = getFillColor(elem);
+                if (elem instanceof SVGSVGElement && this.svgColor == "")
+                    this.svgColor = "#000000";
 
                 if (this.svgColor != "") {
                     for(var c of this.content) {
@@ -489,14 +491,14 @@ class SVGGroup2D {
                 else {
                     this.content = [];
                     for(var s = 0; s != shapes.length; ++s) {
-                        this.content.push(shapes[s]);
+                        this.content.push(SVGGroup2D.fromList(shapes[s], root));
                     }
                 }
             }
             else {
                 console.log("WARNING: svg element not handled - " + elem);
             }
-            
+
             if (elem.hasAttribute("clip-path")) {
                 var id = getIDFromURL(elem.getAttribute("clip-path"));
                 if (id) {
@@ -519,14 +521,16 @@ class SVGGroup2D {
     inheritColor(color) {
         if (!this.svgColor) {
             if (this.shape) {
-                if (this.shape.color == "")
+                if (!this.shape.color || this.shape.color == "") {
                     this.shape.color = color;
+                }
             }
             else {
                 if (this.content) {
                     for(var c of this.content) {
-                        if (c.color == "")
-                            c.color = color;
+                        if (!c.shape.color || c.shape.color == "") {
+                            c.shape.color = color;
+                        }
                     }
                 }
             }
@@ -612,6 +616,12 @@ class SVGGroup2D {
     }
     
     
+}
+
+SVGGroup2D.fromList = function(shape, root)  {
+    var result = new SVGGroup2D(null, root);
+    result.shape = shape;
+    return result;
 }
 
 SVGGroup2D.convertToList = function(shapes) {
