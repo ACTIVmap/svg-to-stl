@@ -334,9 +334,9 @@ class SVGShape2D {
     
 
 
-    union(shapes) {
+    union(shapes, color = "union") {
         var newShapes = martinez.union(this.toList(), SVGShape2D.shapesToList(shapes));
-        return TreeNode.splitIntoShapes(newShapes, "union");
+        return TreeNode.splitIntoShapes(newShapes, color);
     }
     
     diff(shapes) {
@@ -721,7 +721,7 @@ SVGGroup2D.convertToList = function(shapes) {
     for (var j = 0; j < shapes.length; j++) {
         
         // TODO: add an heuristic to change this value
-        var pts = shapes[j].extractPoints(20);
+        var pts = shapes[j].extractPoints(30);
         var paths = [pts.shape].concat(pts.holes);
                     
         for(var a = 0; a != paths.length; ++a) {
@@ -736,6 +736,85 @@ SVGGroup2D.convertToList = function(shapes) {
         result.push(paths);
     }
     return result;
+}
+
+
+class SpatialClipping {
+    
+    constructor() {
+        this.color = null;
+        this.regions = new rbush();
+    }
+    
+    shapes() {
+        return this.regions.all().map(x => x.shape);
+    }
+    
+    // this function merge the new shape in the existing shapes
+    // applying a Martinez union only with shapes that will possibly
+    // be intersecting, wrt the RBush tree. 
+    // The color of the union is defined by the first added element
+    // or by the supplementary parameter if required
+    add(shape, color = null) {
+        var box = Box.fromShape(shape).toRBushItem();
+        var possibleShapeBoxes = this.regions.search(box);
+
+        if (possibleShapeBoxes.length > 0) {
+            var possibleShapes = possibleShapeBoxes.map(x => x.shape);
+            // compute union
+            var union = shape.union(possibleShapes, this.color);
+            
+            // remove previous elements
+            for(var p of possibleShapeBoxes) {
+                this.regions.remove(p);
+            }
+            
+            // add shapes of the union in the region
+            for(var u of union) {
+                var ubox = Box.fromShape(u).toRBushItem();
+                ubox.shape = u;
+                this.regions.insert(ubox);
+            }
+        }
+        else {
+            box.shape = shape;
+            this.regions.insert(box);
+            this.color = shape.color;
+        }
+        
+    }
+    
+    // add a list of shapes to the current container, set color of the final union
+    addList(shapes) {
+        for(var s of shapes)
+            this.add(s);
+    }
+    
+    // this function removes from the given shape the parts contained
+    // in the current structure, applying a Martinez diff only with 
+    // shapes that will possibly be intersecting, wrt the RBush tree
+    crop(shape) {
+        var box = Box.fromShape(shape).toRBushItem();
+        var possibleShapeBoxes = this.regions.search(box);
+        
+        if (possibleShapeBoxes.length > 0) {
+            var possibleShapes = possibleShapeBoxes.map(x => x.shape);
+            return shape.diff(possibleShapes);
+        }
+        else
+            return [shape];
+        
+    }
+    
+    // crop a list of shapes with the current object
+    cropList(shapes) {
+        var result = [];
+        for(var s of shapes) {
+            result = result.concat(this.crop(s));
+        }
+        return result;
+    }
+    
 }
 
 
@@ -822,8 +901,10 @@ class SVGCrop {
 
             this.clipShapesUsingVisibility();
                     
+
             // center and scale the shapes
             this.rescaleAndCenter(options.objectWidth - (options.baseBuffer * 2));
+            
 
             // add possible missing vertices along the paths
             // when two shapes are sharing a common edge
@@ -831,6 +912,7 @@ class SVGCrop {
             
             // adjust to precision before any other step
             this.adjustToPrecision();
+            
         }
 
     }
@@ -917,9 +999,12 @@ class SVGCrop {
         options.typeDepths["base"] = 0.0;
     }
     
+    
+    
     clipShapesUsingVisibility() {
-        var shapes = [];
-        this.silhouette = [];
+        
+        var silhouetteRegion = new SpatialClipping();
+        var regions = {};
                 
         
         if (this.shapes.length > 0) { 
@@ -927,39 +1012,38 @@ class SVGCrop {
             // use inverse order to crop shapes according to their visibility
             for (var i = this.shapes.length - 1; i >= 0; i--) {
                 var curShape = this.shapes[i];
-                var newShapes;
+                var color = curShape.color;
+                var curShapes = [curShape];
                 
-                if (this.silhouette.length == 0) {
-                        this.silhouette = [curShape];
-                        newShapes = this.silhouette;
-                }
-                else {
-                    // TODO: improve the approach in case of multiple shapes with the same color:
-                    // - preserve a silhouette for each color
-                    // - for each shape compute: 
-                    //    * diff for silhouettes with different color
-                    //    * union for silhouette with same color
-                    // - at the end, compute an union of all the silhouettes
-                    
-                    // TODO: use https://github.com/mourner/rbush to detect auto-intersections and avoid 
-                    // unnecessary diff and union computation. 
-
-                    
-                    // we have to add the new shapes to the structure
-                    newShapes = curShape.diff(this.silhouette);
-                    
-                    this.silhouette = curShape.union(this.silhouette);
+                // remove subpart of the regions corresponding to other colors 
+                for(var r in regions) {
+                    if (r != color) {
+                        curShapes = regions[r].cropList(curShapes);
+                    }
                 }
                 
-                shapes = newShapes.concat(shapes);
- 
+                // then merge the new shape in its region
+                if (!(color in regions)) {
+                    regions[color] = new SpatialClipping();
+                }
+                regions[color].addList(curShapes);
+                
+                // add this shape to the main silhouette
+                silhouetteRegion.addList(curShapes);
                 
             }
             
         }
         
-        this.shapes = shapes;
-     
+        this.silhouette = silhouetteRegion.shapes();
+
+        // merge all shapes from regions into a single list
+        this.shapes = [];
+        for(var r in regions) {
+            this.shapes = this.shapes.concat(regions[r].shapes());
+        }
+        
+        
     }
 
     
