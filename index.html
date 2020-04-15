@@ -565,30 +565,32 @@
         return string.replace(expr, "");
     }
 
-    function removeTwins(elem) {
+    function removeTwins(elem, exceptions = []) {
         if (elem && elem.childNodes && elem.childNodes.length) {
-            // first remove twins
-            var childTXT = new Set(); // to speedup search
-            var toBeRemoved = []; // to preserve ordering
-            for(var i = 0; i != elem.childNodes.length; ++i) {
-                var html = elem.childNodes[i].outerHTML;
-                if (html) {
-                    html = removeID(html);
-                    if (childTXT.has(html)) {
-                        toBeRemoved.push(elem.childNodes[i]);
-                    }
-                    else {
-                        childTXT.add(html);
+            if (!elem.tagName in exceptions) {
+                // first remove twins
+                var childTXT = new Set(); // to speedup search
+                var toBeRemoved = []; // to preserve ordering
+                for(var i = 0; i != elem.childNodes.length; ++i) {
+                    var html = elem.childNodes[i].outerHTML;
+                    if (html) {
+                        html = removeID(html);
+                        if (childTXT.has(html)) {
+                            toBeRemoved.push(elem.childNodes[i]);
+                        }
+                        else {
+                            childTXT.add(html);
+                        }
                     }
                 }
-            }
-            for(var child of toBeRemoved) {
-                elem.removeChild(child);
+                for(var child of toBeRemoved) {
+                    elem.removeChild(child);
+                }
             }
             
             // then remove twins in the childen
             for(var i = 0; i != elem.childNodes.length; ++i) {
-                removeTwins(elem.childNodes[i]);
+                removeTwins(elem.childNodes[i], ["clipPath", "mask"]);
             }
         }
         
