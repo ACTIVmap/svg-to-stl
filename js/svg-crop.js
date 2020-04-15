@@ -17,6 +17,10 @@ class Box {
 };
 
 
+Box.prototype.toRBushItem = function() {
+    return { minX: this.left, minY: this.top, maxX: this.right, maxY: this.bottom };
+}
+
 Box.prototype.getMaximumSize = function () {
     var width = this.right - this.left;
     var height = this.bottom - this.top;
@@ -155,29 +159,82 @@ function clockwise(path) {
 }
 
 
-function addPointIfMissing(path, point, precision) {
+
+function pointToRBushBox(p) {
+    return {minX: p[0], minY: p[1], maxX: p[0], maxY: p[1]};
+}
+
+function extend(a, b) {
+    a.minX = Math.min(a.minX, b.minX);
+    a.minY = Math.min(a.minY, b.minY);
+    a.maxX = Math.max(a.maxX, b.maxX);
+    a.maxY = Math.max(a.maxY, b.maxY);
+    return a;
+}
+
+// return distance between a point C and a segment [A, B]
+// or -1 if the nearest point along (A, B) line is ouside of the segment [A, B]
+function relativePositionToEdge(C, A, B, epsilon) {
+    // cf http://www.faqs.org/faqs/graphics/algorithms-faq/
+    // Subject 1.02: How do I find the distance from a point to a line?
+    var L2 = distanceSqrd(A, B);
+    if (L2 <= epsilon)
+        return null;
+    var r = ((C[0] - A[0]) * (B[0] - A[0]) + (C[1] - A[1]) * (B[1] - A[1])) / L2;
+
+    if ((r <= 0) || (r >= 1))
+        return null;
+    else {
+        var Px = A[0] + r * (B[0] - A[0]);
+        var Py = A[1] + r * (B[1] - A[1]);
+        
+        return {position: r, dist: distanceSqrd(C, [Px, Py]), point: [Px, Py]};
+    }
+}
+
+function addMissingPointsInPathFromRBush(path, points, precision) {
     var epsilon = 0.1 ** (precision + 4);
+    
     if (path.length <= 1)
         return path;
+    
+    var result = [path[0]];
     
     for(var i = 1; i != path.length; ++i) {
         var p1 = path[i - 1];
         var p2 = path[i];
-        var dist = distanceSqrdPointSegment(point, p1, p2, epsilon);
-        if ((dist >= 0) && (dist <= epsilon)) {
-            var d1 = distanceSqrd(point, p1);
-            if (d1 > epsilon) {
-                var d2 = distanceSqrd(point, p2);
-                if (d2 > epsilon) {
-                    path.splice(i, 0, point);
-                    return path;
-                }
+        var box = extend(pointToRBushBox(p1), pointToRBushBox(p2));
+        
+        var intersects = points.search(box);
+        
+        var inside = [];
+        for(var inter of intersects) {
+            var point = [inter.minX, inter.minY];
+            var relLoc = relativePositionToEdge(point, p1, p2, epsilon);
+            if (relLoc && relLoc.dist < epsilon) {
+                inside.push(relLoc);
             }
         }
+        // sort wrt position
+        inside.sort(function(a, b) { return a.position > b.position; });
+        // remove doubles 
+        inside = inside.filter(function(item, pos, ary) { return !pos || item.position != ary[pos - 1].position;});
+        
+        // add them to the result
+        for(var ii of inside) {
+            result.push(ii.point);
+        }
+        result.push(p2);
+        
     }
     
-    return path;
-    
+    return result;
+}
+
+function addPointsInRBushFromPath(path, points) {
+    for(var x of path) {
+        points.insert(pointToRBushBox(x));
+    }
 }
 
 function truncator(x, precision) {    
@@ -254,24 +311,28 @@ class SVGShape2D {
         }
     }
     
-    // if one point of the other shape is in an edge of the current shape, add it
-    addMissingPointsFromShape(shape, precision) {
+    
+    
+    addPointsInRBush(points) {
+        addPointsInRBushFromPath(this.polyline, points);
+        for(var h of this.holes) {
+            addPointsInRBushFromPath(h, points);
+        }
+    }
+    
+    
+    // if one point is in an edge of the current shape, add it
+    addMissingPointsFromRBush(points, precision) {
+        this.polyline = addMissingPointsInPathFromRBush(this.polyline, points, precision);
         
         // for each path of this shape
-        this.addMissingPointsFromPath(shape.polyline, precision);
-        for(var h of shape.holes) {
-            this.addMissingPointsFromPath(h, precision);
+        for(var h of this.holes) {
+            h = addMissingPointsInPathFromRBush(h, points, precision);
         }
     
     }
     
-    addMissingPointsFromPath(path, precision) {
-        for(var p of path) {
-            this.polyline = addPointIfMissing(this.polyline, p, precision);
-            for(var x = 0; x != this.holes.length; ++x)
-                this.holes[x] = addPointIfMissing(this.holes[x], p, precision);
-        }        
-    }
+
 
     union(shapes) {
         var newShapes = martinez.union(this.toList(), SVGShape2D.shapesToList(shapes));
@@ -310,40 +371,73 @@ class TreeNode {
             this.polygon = polygon;
             this.children = children;
             this.color = color;
+            this.bBoxes = new rbush();
+            if (children.length > 0) {
+                this.rebuildBBoxes();
+            }
+        }
+        rebuildBBoxes() {
+            this.bBoxes.clear();
+            for(var i = 0; i != this.children.length; ++i) {
+                var iitem = Box.fromPath(this.children[i].polygon).toRBushItem();
+                iitem.id = i;
+                this.bBoxes.insert(iitem);
+            }
         }
 
         addPolygon(polygon) {
             if (polygon.length == 0) {
                 return;
             }
+            var item = Box.fromPath(polygon).toRBushItem();
             if (this.children.length == 0) {
                 this.children.push(new TreeNode(polygon, this.color, []));
+                item.id = 0;
+                this.bBoxes.insert(item);
             }
             else {
+                var intersect = this.bBoxes.search(item);
+                
                 var found = false;
-                for(var i = 0; i < this.children.length; ++i) {
-                    var point = polygon[0];
-                    // if the given polygon is contained in one
-                    // child, we add the polygon to this child
-                    if (inside(point, this.children[i].polygon)) {
-                        this.children[i].addPolygon(polygon);
-                        found = true;
-                        break;
+                if (intersect.length != 0) {
+                    // check if the given element is inside a child
+                    for(var inter of intersect) {
+                        var point = polygon[0];
+                        // if the given polygon is contained in one
+                        // child, we add the polygon to this child
+                        if (inside(point, this.children[inter.id].polygon)) {
+                            this.children[inter.id].addPolygon(polygon);
+                            found = true;
+                            break;
+                        }
                     }
+                
+                    if (!found) {
+                        // check if this element contains existing children
+                        var insideChildrenIDs = [];
+                        for(var inter of intersect) {
+                            if (inside(this.children[inter.id].polygon[0], polygon)) {
+                                insideChildrenIDs.push(inter.id);
+                            }
+                        }
+                        if (insideChildrenIDs.length > 0) {
+                            var newChild = new TreeNode(polygon, this.color, insideChildrenIDs.map(id => this.children[id])); 
+                            this.children = this.children.filter((e, id) => ! insideChildrenIDs.includes(id));
+                            this.children.push(newChild);
+                            // rebuild bBoxes
+                            this.rebuildBBoxes();
+                            found = true;
+                        }
+                     }
                 }
+                
                 if (!found) {
-                    var insideChildren = this.children.filter(v => inside(v.polygon[0], polygon));
-                    if (insideChildren.length > 0) {
-                        this.children = this.children.filter(v => !inside(v.polygon[0], polygon));
-                        this.children.push(new TreeNode(polygon, this.color, insideChildren)); 
-                    }
-                    else {
-                        // the polygon is not contained in any child
-                        // thus it is a brother
-                        this.children.push(new TreeNode(polygon, this.color, []));
-                    }
-                    
+                    // this element is a brother of the existing elements
+                    this.children.push(new TreeNode(polygon, this.color, []));
+                    item.id = this.children.length - 1;
+                    this.bBoxes.insert(item);
                 }
+                
             }
         }
         
@@ -366,7 +460,6 @@ class TreeNode {
                         result = result.concat(this.children[i].children[j].flatten());
                     }
             }
-            
             
             return result;
         }
@@ -528,9 +621,7 @@ class SVGGroup2D {
             else {
                 if (this.content) {
                     for(var c of this.content) {
-                        if (!c.shape.color || c.shape.color == "") {
-                            c.shape.color = color;
-                        }
+                        c.inheritColor(color);
                     }
                 }
             }
@@ -628,8 +719,9 @@ SVGGroup2D.convertToList = function(shapes) {
     var result = [];
     
     for (var j = 0; j < shapes.length; j++) {
+        
         // TODO: add an heuristic to change this value
-        var pts = shapes[j].extractPoints(50);
+        var pts = shapes[j].extractPoints(20);
         var paths = [pts.shape].concat(pts.holes);
                     
         for(var a = 0; a != paths.length; ++a) {
@@ -664,13 +756,16 @@ class SVGCrop {
 
     
     addMissingPoints() {
+        // add all points in a RBush data structure
+        var points = new rbush();
         
-        for(var x = 0; x != this.shapes.length; ++x) {
-            for(var y = 0; y != this.shapes.length; ++y) {
-                if (x != y) {
-                    this.shapes[x].addMissingPointsFromShape(this.shapes[y], this.precision);
-                }
-            }
+        for(var s of this.shapes) {
+            s.addPointsInRBush(points);
+        }
+        
+        // then add possible missing points
+        for(var s of this.shapes) {
+            s.addMissingPointsFromRBush(points, this.precision);
         }
     
     }
@@ -846,6 +941,9 @@ class SVGCrop {
                     //    * union for silhouette with same color
                     // - at the end, compute an union of all the silhouettes
                     
+                    // TODO: use https://github.com/mourner/rbush to detect auto-intersections and avoid 
+                    // unnecessary diff and union computation. 
+
                     
                     // we have to add the new shapes to the structure
                     newShapes = curShape.diff(this.silhouette);

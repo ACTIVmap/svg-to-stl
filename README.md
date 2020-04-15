@@ -37,6 +37,7 @@ svg-to-stl makes use of a number of other open source projects:
 * [three.js] - For WebGL rendering of a 3D scene
 * [d3-threeD] - For converting SVG paths into three.js geometries
 * [martinez] - For clipping shapes preserving only visible parts
+* [rbush] - For efficient intersections and proximity detections
 * [flatten.js] - For applying all heirarchical transforms in an SVG to its paths
 * [ThreeCSG] - For [Constructive Solid Geometry] support
 * [STLExporter] - For converting a three.js geometry into an ASCII STL file
@@ -67,4 +68,5 @@ svg-to-stl makes use of a number of other open source projects:
    [Bootstrap]: <https://getbootstrap.com/>
    [bootstrap-colorpicker]: <https://github.com/itsjavi/bootstrap-colorpicker>
    [bootstrap-dark]: <https://github.com/ForEvolve/bootstrap-dark>
+   [rbush]: <https://github.com/mourner/rbush>
    
