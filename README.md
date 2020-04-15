@@ -57,7 +57,7 @@ svg-to-stl makes use of a number of other open source projects:
    [Constructive Solid Geometry]: <https://en.wikipedia.org/wiki/Constructive_solid_geometry>
    [three.js]: <https://github.com/mrdoob/three.js>
    [d3-threeD]: <https://github.com/asutherland/d3-threeD>
-   [flatten.js]: <https://gist.github.com/timo22345/9413158>
+   [flatten.js]: <https://github.com/jmtrivial/flatten.js>
    [ThreeCSG]: <https://github.com/chandlerprall/ThreeCSG>
    [STLExporter]: <https://gist.github.com/kjlubick/fb6ba9c51df63ba0951f>
    [Spectrum]: <https://github.com/bgrins/spectrum>
