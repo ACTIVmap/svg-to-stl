@@ -444,73 +444,75 @@ class SVGGroup2D {
         this.mask = null;
         this.svgColor = null;
         
-        if (elem && elem.children && elem.children.length && (forceClip || !(elem instanceof SVGClipPathElement) && !(elem instanceof SVGMaskElement))) {
-            this.content = [];
-            for(var e = 0; e != elem.children.length; ++e) {
-                var child = new SVGGroup2D(elem.children[e], root);
-                if (!child.empty())
-                    this.content.push(child);
-            }
-            this.svgColor = getFillColor(elem);
-
-            if (this.svgColor != "") {
-                for(var c of this.content) {
-                    c.inheritColor(this.svgColor);
+        if (elem) {
+            if (elem.children && elem.children.length && (forceClip || !(elem instanceof SVGClipPathElement) && !(elem instanceof SVGMaskElement))) {
+                this.content = [];
+                for(var e = 0; e != elem.children.length; ++e) {
+                    var child = new SVGGroup2D(elem.children[e], root);
+                    if (!child.empty())
+                        this.content.push(child);
                 }
+                this.svgColor = getFillColor(elem);
+
+                if (this.svgColor != "") {
+                    for(var c of this.content) {
+                        c.inheritColor(this.svgColor);
+                    }
+                }
+                else
+                    this.svgColor = null;
             }
-            else
-                this.svgColor = null;
-        }
-        else if (elem instanceof SVGPathElement) {
-            // read SVG path
-            var svgPath = elem.getAttribute("d");
-            
-            this.svgColor = getFillColor(elem);
-            
-            // Turn SVG path into a three.js shape (that can be composed of a list of shapes)
-            var path = d3.transformSVGPath(svgPath);
+            else if (elem instanceof SVGPathElement) {
+                // read SVG path
+                var svgPath = elem.getAttribute("d");
                 
-            // extract shapes associated to the svg path,
-            var newShapes = path.toShapes(this.svgWindingIsCW);
+                this.svgColor = getFillColor(elem);
+                
+                // Turn SVG path into a three.js shape (that can be composed of a list of shapes)
+                var path = d3.transformSVGPath(svgPath);
+                    
+                // extract shapes associated to the svg path,
+                var newShapes = path.toShapes(this.svgWindingIsCW);
 
-            // discretize them, and convert them to a basic list format
-            newShapes = SVGGroup2D.convertToList(newShapes);
+                // discretize them, and convert them to a basic list format
+                newShapes = SVGGroup2D.convertToList(newShapes);
 
-            // possibly split the original path in multiple shapes
-            var shapes = TreeNode.splitIntoShapes(newShapes, this.svgColor, false);
-            if (shapes.length == 0) {
-                // empty shape
-                return;
-            }
-            else if (shapes.length == 1) {
-                this.shape = shapes[0];
+                // possibly split the original path in multiple shapes
+                var shapes = TreeNode.splitIntoShapes(newShapes, this.svgColor, false);
+                if (shapes.length == 0) {
+                    // empty shape
+                    return;
+                }
+                else if (shapes.length == 1) {
+                    this.shape = shapes[0];
+                }
+                else {
+                    this.content = [];
+                    for(var s = 0; s != shapes.length; ++s) {
+                        this.content.push(shapes[s]);
+                    }
+                }
             }
             else {
-                this.content = [];
-                for(var s = 0; s != shapes.length; ++s) {
-                    this.content.push(shapes[s]);
+                console.log("WARNING: svg element not handled - " + elem);
+            }
+            
+            if (elem.hasAttribute("clip-path")) {
+                var id = getIDFromURL(elem.getAttribute("clip-path"));
+                if (id) {
+                    var newElem = root.getElementById(id);
+                    this.clipPath = new SVGGroup2D(newElem, root, true);
                 }
+                
             }
-        }
-        else {
-            console.log("WARNING: svg element not handled - " + elem);
-        }
-        
-        if (elem.hasAttribute("clip-path")) {
-            var id = getIDFromURL(elem.getAttribute("clip-path"));
-            if (id) {
-                var newElem = root.getElementById(id);
-                this.clipPath = new SVGGroup2D(newElem, root, true);
+            if (elem.hasAttribute("mask")) {
+                var id = getIDFromURL(elem.getAttribute("mask"));
+                if (id) {
+                    var newElem = root.getElementById(id);
+                    this.mask = new SVGGroup2D(newElem, root, true);
+                }
+                
             }
-            
-        }
-        if (elem.hasAttribute("mask")) {
-            var id = getIDFromURL(elem.getAttribute("mask"));
-            if (id) {
-                var newElem = root.getElementById(id);
-                this.mask = new SVGGroup2D(newElem, root, true);
-            }
-            
         }
     }
     
