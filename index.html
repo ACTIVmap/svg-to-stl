@@ -567,6 +567,22 @@
         return string.replace(expr, "");
     }
 
+    function removeEmptyGroups(elem) {
+        if (elem) {
+            if (elem instanceof SVGGElement) {
+                if (elem.children.length == 0) {
+                    elem.parentNode.removeChild(elem);
+                    return;
+                }
+            }
+            if (elem.children) {
+                for(var c of elem.children)
+                    removeEmptyGroups(c);
+            }
+            
+        }
+    }
+    
     function removeTwins(elem, exceptions = []) {
         if (elem && elem.childNodes && elem.childNodes.length) {
             if (!elem.tagName in exceptions) {
@@ -656,13 +672,17 @@
           $('#uploadedSVG').attr("alt", "svg image");
           $('#uploadedSVG').attr("id", "uploadedSVG");
           $('#uploadedSVG').addClass("card-img-top");
+
+          
+          // remove empty groups
+          removeEmptyGroups(document.getElementById('uploadedSVG'));
         
           // "Flatten" the SVG by applying all transforms to shapes and paths
           flatten(document.getElementById('uploadedSVG'));
-        
+
           // remove all twins (two SVG elements with the same parent, and identical)
           removeTwins(document.getElementById('uploadedSVG'));
-
+        
           
           // load the svg structure
           // TODO: do we need this reverseWO?
