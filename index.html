@@ -242,6 +242,14 @@
                             </div>
 
                             <div class="form-group">
+                                <label class="form-check-label" for="minimalSubdivisionDistance" tkey="minimalSubdivisionDistance">
+                                    Minimal subdivision distance (used to avoid too thin subdivisions)
+                                </label>
+                                <input type="number" min="0" pattern="\d+" class="form-control" id="minimalSubdivisionDistance" aria-describedby="objectWidthHelper" value="0.1">
+                                <small id="objectWidthHelper" class="form-text text-muted" tkey="unitMM">Unit: millimeters.</small>
+                            </div>
+
+                            <div class="form-group">
                                 <label class="form-check-label" for="mergeDistance" tkey="mergeDistance">
                                     Merge distance (used to remove small gaps between elements)
                                 </label>
@@ -466,6 +474,7 @@
             objectColor: $("input#colorPicker").val(),
             ignoreDocumentMargins: $("input#ignoreDocumentMargins").prop("checked"),
             mergeDistance: Math.abs(Number($("input#mergeDistance").val())),
+            minimalSubdivisionDistance: Math.abs(Number($("input#minimalSubdivisionDistance").val())),
             discretization: $("input#discretization").prop("checked"),
             precision:Math.abs(Number($("input#precision").val()))
         };

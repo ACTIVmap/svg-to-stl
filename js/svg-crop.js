@@ -732,17 +732,72 @@ SVGGroup2D.fromList = function(shape, root)  {
     return result;
 }
 
+function median(values){
+  if(values.length === 0) return 0;
+
+  values.sort(function(a, b){ return a - b; });
+  
+  var half = Math.floor(values.length / 2);
+
+  
+  if (values.length % 2)
+    return values[half];
+
+  return (values[half - 1] + values[half]) / 2.0;
+}
+
+function getEdgeLengthsFromPath(path) {
+    var result = [];
+    if (path.length <= 1) {
+        return result;
+    }
+    
+    for(var i = 1; i < path.length; ++i) {
+        result.push(path[i].distanceTo(path[i - 1]));
+    }
+    
+    return result;
+}
+
+function getMedianEdgeLength(paths) {
+    var lengths = [];
+    for(var p of paths) {
+        lengths = lengths.concat(getEdgeLengthsFromPath(p));
+    }
+    return median(lengths);
+}
+
 SVGGroup2D.convertToList = function(shapes) {
     var result = [];
     
     var precision = 0.;
     if (SVGGroup2D.options && SVGGroup2D.options.precision)
         precision = SVGGroup2D.options.precision;
+    
+    var msDistance = 1.0;
+    if (SVGGroup2D.options && SVGGroup2D.options.minimalSubdivisionDistance)
+        msDistance = SVGGroup2D.options.minimalSubdivisionDistance;
+    if (SVGGroup2D.scale)
+        msDistance /= SVGGroup2D.scale;
+    
     for (var j = 0; j < shapes.length; j++) {
         
-        // TODO: add an heuristic to change this value
-        var pts = shapes[j].extractPoints(30);
-        var paths = [pts.shape].concat(pts.holes);
+        var subdivision = 128;
+        var pts;
+        var paths;
+        var stop = false;
+        var prevDist = -1;
+        do {
+            subdivision /= 2;
+            // use an heuristic to adjust the subdivision process
+            pts = shapes[j].extractPoints(subdivision);
+            paths = [pts.shape].concat(pts.holes);
+            
+            dist = getMedianEdgeLength(paths);
+            if ((subdivision == 1) || (prevDist == dist) || (dist > msDistance))
+                stop = true;
+            prevDist = dist;
+        } while(!stop);
                     
         for(var a = 0; a != paths.length; ++a) {
             for(var b = 0; b != paths[a].length; ++b) {
@@ -915,6 +970,8 @@ class SVGCrop {
           
     process() {
         SVGGroup2D.options = this.options;
+        SVGGroup2D.scale = this.getScale();
+        
         this.svgStructure = new SVGGroup2D(this.svgNode);
         // produce a list of shapes (hierarchical structure is only required
         // for mask and clip)
