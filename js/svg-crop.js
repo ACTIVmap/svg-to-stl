@@ -735,6 +735,9 @@ SVGGroup2D.fromList = function(shape, root)  {
 SVGGroup2D.convertToList = function(shapes) {
     var result = [];
     
+    var precision = 0.;
+    if (SVGGroup2D.options && SVGGroup2D.options.precision)
+        precision = SVGGroup2D.options.precision;
     for (var j = 0; j < shapes.length; j++) {
         
         // TODO: add an heuristic to change this value
@@ -743,9 +746,9 @@ SVGGroup2D.convertToList = function(shapes) {
                     
         for(var a = 0; a != paths.length; ++a) {
             for(var b = 0; b != paths[a].length; ++b) {
-                if (this.precision >= 0)
-                    paths[a][b] = [parseFloat(paths[a][b].x.toFixed(this.precision)), 
-                                    parseFloat(paths[a][b].y.toFixed(this.precision))];
+                if (precision >= 0)
+                    paths[a][b] = [parseFloat(paths[a][b].x.toFixed(precision)), 
+                                    parseFloat(paths[a][b].y.toFixed(precision))];
                 else
                     paths[a][b] = [parseFloat(paths[a][b].x), parseFloat(paths[a][b].y)];
             }
@@ -911,6 +914,7 @@ class SVGCrop {
     }
           
     process() {
+        SVGGroup2D.options = this.options;
         this.svgStructure = new SVGGroup2D(this.svgNode);
         // produce a list of shapes (hierarchical structure is only required
         // for mask and clip)
