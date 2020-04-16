@@ -567,21 +567,6 @@
         return string.replace(expr, "");
     }
 
-    function removeEmptyGroups(elem) {
-        if (elem) {
-            if (elem instanceof SVGGElement) {
-                if (elem.children.length == 0) {
-                    elem.parentNode.removeChild(elem);
-                    return;
-                }
-            }
-            if (elem.children) {
-                for(var c of elem.children)
-                    removeEmptyGroups(c);
-            }
-            
-        }
-    }
     
     function removeTwins(elem, exceptions = []) {
         if (elem && elem.childNodes && elem.childNodes.length) {
@@ -675,8 +660,8 @@
 
           
           // remove empty groups
-          removeEmptyGroups(document.getElementById('uploadedSVG'));
-        
+          $("#uploadedSVG g:not(:has(*))").remove();
+
           // "Flatten" the SVG by applying all transforms to shapes and paths
           flatten(document.getElementById('uploadedSVG'));
 
