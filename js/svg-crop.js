@@ -164,6 +164,14 @@ function pointToRBushBox(p) {
     return {minX: p[0], minY: p[1], maxX: p[0], maxY: p[1]};
 }
 
+function dilate(a, epsilon) {
+    a.minX -= epsilon;
+    a.minY -= epsilon;
+    a.maxX += epsilon;
+    a.maxY += epsilon;
+    return a;
+}
+
 function extend(a, b) {
     a.minX = Math.min(a.minX, b.minX);
     a.minY = Math.min(a.minY, b.minY);
@@ -193,7 +201,9 @@ function relativePositionToEdge(C, A, B, epsilon) {
 }
 
 function addMissingPointsInPathFromRBush(path, points, precision) {
-    var epsilon = 0.1 ** (precision + 4);
+    var epsilon = 0.1 ** (precision + 2);
+    var eDilate = 0.1 ** (precision + 1);
+    
     
     if (path.length <= 1)
         return path;
@@ -203,10 +213,9 @@ function addMissingPointsInPathFromRBush(path, points, precision) {
     for(var i = 1; i != path.length; ++i) {
         var p1 = path[i - 1];
         var p2 = path[i];
-        var box = extend(pointToRBushBox(p1), pointToRBushBox(p2));
+        var box = dilate(extend(pointToRBushBox(p1), pointToRBushBox(p2)), eDilate);
         
         var intersects = points.search(box);
-        
         var inside = [];
         for(var inter of intersects) {
             var point = [inter.minX, inter.minY];
@@ -215,15 +224,19 @@ function addMissingPointsInPathFromRBush(path, points, precision) {
                 inside.push(relLoc);
             }
         }
-        // sort wrt position
-        inside.sort(function(a, b) { return a.position > b.position; });
-        // remove doubles 
-        inside = inside.filter(function(item, pos, ary) { return !pos || item.position != ary[pos - 1].position;});
         
-        // add them to the result
-        for(var ii of inside) {
-            result.push(ii.point);
+        if (inside.length > 0) {
+            // sort wrt position
+            inside.sort(function(a, b) { return a.position < b.position; });
+            // remove doubles 
+            inside = inside.filter(function(item, pos, ary) { return !pos || item.position != ary[pos - 1].position;});
+            
+            // add them to the result
+            for(var ii of inside) {
+                result.push(ii.point);
+            }
         }
+        
         result.push(p2);
         
     }
@@ -843,10 +856,14 @@ class SVGCrop {
         }
         
         // then add possible missing points
-        for(var s of this.shapes) {
-            s.addMissingPointsFromRBush(points, this.precision);
+        for(var sh of this.shapes) {
+            sh.addMissingPointsFromRBush(points, this.precision);
         }
-    
+
+        for(var si of this.silhouette) {
+            si.addMissingPointsFromRBush(points, this.precision);
+        }
+
     }
           
 
