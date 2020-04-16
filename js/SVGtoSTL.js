@@ -42,7 +42,10 @@ function renderObject(svgStructure, scene, group, camera, options) {
     group.add(finalObj);
     
     // change zoom wrt the size of the mesh
-    camera.position.set(0, - width, width);
+    camera.position.set(0, -width, width);
+    controls.target.set(0, 0, 0);
+    controls.update();
+
 
     // Show the wireframe?
     if(options.wantWireFrame) {
