@@ -200,9 +200,9 @@ function relativePositionToEdge(C, A, B, epsilon) {
     }
 }
 
-function addMissingPointsInPathFromRBush(path, points, precision) {
-    var epsilon = 0.1 ** (precision + 2);
-    var eDilate = 0.1 ** (precision + 1);
+function addMissingPointsInPathFromRBush(path, points, precision, scale) {
+    var epsilon = 0.1 ** (precision * scale + 2);
+    var eDilate = 0.1 ** (precision * scale + 1);
     
     
     if (path.length <= 1)
@@ -250,7 +250,11 @@ function addPointsInRBushFromPath(path, points) {
     }
 }
 
-function truncator(x, precision) {    
+function getBaseLog(x, y) {
+  return Math.log(y) / Math.log(x);
+}
+
+function truncator(x, precision) {
     var npow = Math.pow(10, precision);
     return Math.round(x * npow) / npow;
 }
@@ -335,12 +339,12 @@ class SVGShape2D {
     
     
     // if one point is in an edge of the current shape, add it
-    addMissingPointsFromRBush(points, precision) {
-        this.polyline = addMissingPointsInPathFromRBush(this.polyline, points, precision);
+    addMissingPointsFromRBush(points, precision, scale) {
+        this.polyline = addMissingPointsInPathFromRBush(this.polyline, points, precision, scale);
         
         // for each path of this shape
         for(var h of this.holes) {
-            h = addMissingPointsInPathFromRBush(h, points, precision);
+            h = addMissingPointsInPathFromRBush(h, points, precision, scale);
         }
     
     }
@@ -855,13 +859,15 @@ class SVGCrop {
             s.addPointsInRBush(points);
         }
         
+        var scale = this.getScale();
+        
         // then add possible missing points
         for(var sh of this.shapes) {
-            sh.addMissingPointsFromRBush(points, this.precision);
+            sh.addMissingPointsFromRBush(points, this.precision, scale);
         }
 
         for(var si of this.silhouette) {
-            si.addMissingPointsFromRBush(points, this.precision);
+            si.addMissingPointsFromRBush(points, this.precision, scale);
         }
 
     }
@@ -873,16 +879,16 @@ class SVGCrop {
     }
     
     
-    adjustToPrecision() {
+    adjustToPrecision(precision) {
         if (this.shapes != null) {
             for(var s of this.shapes) {
-                s.adjustPathsToPrecision(this.precision);
+                s.adjustPathsToPrecision(precision);
                 s.removeConsecutiveDoubles();
             }
         }
         if (this.silhouette != null) {
             for(var s of this.silhouette) {
-                s.adjustPathsToPrecision(this.precision);
+                s.adjustPathsToPrecision(precision);
                 s.removeConsecutiveDoubles();
             }
         }
@@ -909,10 +915,12 @@ class SVGCrop {
         // produce a list of shapes (hierarchical structure is only required
         // for mask and clip)
         this.shapes = this.svgStructure.flatten();
-        this.precision *= this.getScale();
         
-        if (this.shapes.length > 0) { 
-            this.adjustToPrecision();
+        if (this.shapes.length > 0) {
+            // adjust the precision wrt the scale
+            var precision = this.precision + (Math.floor(getBaseLog(10, this.getScale())));
+
+            this.adjustToPrecision(precision);
             if (this.options.wantBasePlate != null)
                 this.addBasePlateInternal();
 
@@ -922,13 +930,12 @@ class SVGCrop {
             // center and scale the shapes
             this.rescaleAndCenter(options.objectWidth - (options.baseBuffer * 2));
             
-
             // add possible missing vertices along the paths
             // when two shapes are sharing a common edge
             this.addMissingPoints();
             
             // adjust to precision before any other step
-            this.adjustToPrecision();
+            this.adjustToPrecision(this.precision);
             
         }
 
