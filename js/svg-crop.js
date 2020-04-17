@@ -588,6 +588,9 @@ class SVGGroup2D {
 
                 // discretize them, and convert them to a basic list format
                 newShapes = SVGGroup2D.convertToList(newShapes);
+                
+                // handle non closed shapes
+                newShapes = SVGGroup2D.selectOnlyLoops(newShapes);
 
                 // possibly split the original path in multiple shapes
                 var shapes = TreeNode.splitIntoShapes(newShapes, this.svgColor, false);
@@ -627,6 +630,7 @@ class SVGGroup2D {
             }
         }
     }
+    
     
     inheritColor(color) {
         if (!this.svgColor) {
@@ -725,6 +729,20 @@ class SVGGroup2D {
     
     
 }
+
+SVGGroup2D.selectOnlyLoops = function(shapes) {
+    result = [];
+    for(var sh of shapes) {
+        var v = sh.filter(s => s.length != 0 && !(s[0][0] == s[s.length - 1][0] && s[0][1] == s[s.length - 1][1]));
+        if (v.length == 0) {
+            result.push(sh);
+        } else {
+            console.log("WARNING: removing a shape with a non loop path");
+        }
+    }
+    return result;
+}
+
 
 SVGGroup2D.fromList = function(shape, root)  {
     var result = new SVGGroup2D(null, root);
