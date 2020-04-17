@@ -6,6 +6,10 @@ function clearGroup(group) {
 }
 
 
+function sameLocationXY(v1, v2) {
+    return v1.x == v2.x && v1.y == v2.y;
+}
+
 function getMaximumSize(mesh) {
     if (mesh.geometry.vertices.length == 0) {
         return 1;
@@ -187,7 +191,7 @@ class SVG3DScene {
     
 
 
-
+    // TODO: use RBush
     getSimilarPointsToFirst(point, ii, jj, kk, distance) {
         var sim = { middle: point, pts: [[ii, jj, kk]] };
         for(var i = ii; i != this.paths.length; ++i) {
@@ -267,6 +271,7 @@ class SVG3DScene {
             var union = [];
             for(var j = 0; j < this.paths.length; j++) {
                 if (this.depths[j] == uDepths[i]) {
+                    // TODO: do we need to use improvments from SVGShape2D using RBush?
                     if (union.length == 0)
                         union = [this.paths[j]];
                     else {
@@ -639,67 +644,77 @@ class SVG3DScene {
     }
 
     
-    getPointsSame2DLocationPt(geometry, pointID) {
-        var point = geometry.vertices[pointID];
-        var result = [];
-        for(var i = 0; i != geometry.vertices.length; ++i) {
-            var p = geometry.vertices[i];
-            if ((i != pointID) && (p.x == point.x) && (p.y == point.y))
-                result.push(i);
-        }
-        return result;
-    }
+
     
-    getPointsSame2DLocation(geometry, bEdges) {
+    getEdgesSame2DLocation(geometry, bEdges) {
         var result = {};
         
-        for(var i = 0; i != bEdges.length; ++i) {
-            if (!(bEdges[i][0] in result)) {
-                result[bEdges[i][0]] = this.getPointsSame2DLocationPt(geometry, bEdges[i][0]);
-            }
-            if (!(bEdges[i][1] in result)) {
-                result[bEdges[i][1]] = this.getPointsSame2DLocationPt(geometry, bEdges[i][1]);
+        for(var box of bEdges.all()) {
+            var bIndex = box.edge[0] + "-" + box.edge[1];
+            var vs = [geometry.vertices[box.edge[0]], geometry.vertices[box.edge[1]]];
+
+            var interBoxes = bEdges.search(box);
+            result[bIndex] = [];
+            
+            for(var ib of interBoxes) {
+                var e = ib.edge;
+                if ((e[0] != box.edge[0]) || (e[1] != box.edge[1])) {
+                    for (var i = 0; i != 2; ++i) {
+                        for(var idP of e) {
+                            if (geometry.vertices[idP].x == vs[i].x &&
+                                geometry.vertices[idP].y == vs[i].y)
+                                result[bIndex].push(e);
+                                break;
+                        }
+                    }
+                }
             }
         }
         
         return result;
     }
     
-    // get the list of all edges whitch vertices are
+    // get the list of all edges in SEdges which both vertices are
     // at the same (x, y) location as the ones of the given edge
-    getOtherEdges(edge, bEdges, sPoints) {
-        var pts1 = sPoints[edge[0]];
-        var pts2 = sPoints[edge[1]];
-        return bEdges.filter(e => (((e[0] != edge[0]) || (e[1] != edge[1])) && 
-                                    (((pts1.indexOf(e[0]) != -1) && (pts2.indexOf(e[1]) != -1)) ||
-                                     ((pts1.indexOf(e[1]) != -1) && (pts2.indexOf(e[0]) != -1)))));
+    getOtherEdges(edge, sEdges, geometry) {
+        var result = [];
+        var v1 = geometry.vertices[edge[0]];
+        var v2 = geometry.vertices[edge[1]];
+        
+        for(var e of sEdges) {
+            var ev1 = geometry.vertices[e[0]];
+            var ev2 = geometry.vertices[e[1]];
+            if ((sameLocationXY(v1, ev1) && sameLocationXY(v2, ev2)) ||
+                (sameLocationXY(v1, ev2) && sameLocationXY(v2, ev1))) {
+                result.push(e);
+            }
+        }
+        return result;
     }
     
-    isUpperEdge(edge, bEdges, sPoints, geometry) {
-        var others = this.getOtherEdges(edge, bEdges, sPoints);
+    isUpperEdge(edge, oEdges, geometry) {
         var z = geometry.vertices[edge[0]].z;
-        for(var i = 0; i < others.length; ++i) {
-            if (z < geometry.vertices[others[i][0]].z)
+        for(var other of oEdges) {
+            if (z < geometry.vertices[other[0]].z)
                 return false;
         }
         return true;
     }
     
-    // given sides=[s1, s2] a pair of vertex id lists,
-    // sort them using z coordinate, and keep only vertices
+    // given sides=[s1, s2] a list of edges corresponding to these two sides,
+    // sort them the sides using z coordinate, and keep only vertices
     // between the first and last edges.
-    filterVerticesBetweenEdges(sides, bEdges, geometry) {
+    filterVerticesBetweenEdges(sides, lEdges, geometry) {
         
         // sort vertices along Z axis on each line
+        // and remove doubles
         sides[0].sort(function(a, b) { return geometry.vertices[a].z - geometry.vertices[b].z;});
         sides[1].sort(function(a, b) { return geometry.vertices[a].z - geometry.vertices[b].z;});
 
-        // get the list of edges within this subpart of the mesh
-        var lEdges = bEdges.filter(e => (((sides[0].indexOf(e[0]) != -1) && (sides[1].indexOf(e[1]) != -1)) ||
-                                         ((sides[1].indexOf(e[0]) != -1) && (sides[0].indexOf(e[1]) != -1))));
+        sides[0] = sides[0].filter(function(item, pos, ary) { return !pos || item != ary[pos - 1];});
+        sides[1] = sides[1].filter(function(item, pos, ary) { return !pos || item != ary[pos - 1];});
         
-        
-        // get vertices in these edges
+        // get vertices in the similar edges
         var eVerts = [].concat.apply([], lEdges);
 
         // remove top and bottom vertices not involved in an edge
@@ -712,11 +727,26 @@ class SVG3DScene {
         return sides;
     }
     
-    addSideFromEdge(edge, sPoints, geometry, bEdges) {
+    addSideFromEdge(edge,
+                    sEdges, /* all edges sharing a vertex with the given edge */
+                    oEdges, /* all edges at the same position as the given edge */
+                    geometry) {
         
-        var sides = [sPoints[edge[0]], sPoints[edge[1]]];
+        var v1 = geometry.vertices[edge[0]];
+        var v2 = geometry.vertices[edge[1]];
+        
+        // get all vertices at in the connected edges
+        var eVerts = [].concat.apply([], sEdges);
+        // get all points at the same location as edge[0] and edge[1]
+        var sides = [eVerts.filter(id => sameLocationXY(geometry.vertices[id], v1)), 
+                     eVerts.filter(id => sameLocationXY(geometry.vertices[id], v2))];
+        
+        // add edge
         sides = [[edge[0]].concat(sides[0]), [edge[1]].concat(sides[1])];
-        sides = this.filterVerticesBetweenEdges(sides, bEdges, geometry);
+        
+        
+        // filter by removing all elements outside of the elements in oEdges
+        sides = this.filterVerticesBetweenEdges(sides, [edge].concat(oEdges), geometry);
 
         if (((sides[0].length == 1) && (sides[1].length == 1)) ||
             (sides[0].length == 0) || (sides[1].length == 0)) {
@@ -738,10 +768,13 @@ class SVG3DScene {
         return geometry;
     }
     
-    addSideFromEdges(geometry, bEdges, sPoints) {
-        for(var i = 0; i < bEdges.length; ++i) {
-            if (this.isUpperEdge(bEdges[i], bEdges, sPoints, geometry)) {
-                geometry = this.addSideFromEdge(bEdges[i], sPoints, geometry, bEdges);
+    addSideFromEdges(geometry, bEdges, sEdges) {
+        for(var box of bEdges.all()) {
+            var edge = box.edge;
+            var bIndex = edge[0] + "-" + edge[1];
+            var oEdges = this.getOtherEdges(edge, sEdges[bIndex], geometry);
+            if (this.isUpperEdge(edge, oEdges, geometry)) {
+                geometry = this.addSideFromEdge(edge, sEdges[bIndex], oEdges, geometry);
             }
         }
         return geometry;
@@ -749,14 +782,16 @@ class SVG3DScene {
     
     addSides(geometry) {
         // identify all the boundary edges in the geometry
-        var bEdges = SVG3DScene.getBoundaryEdges(geometry);
+        var bEdges = SVG3DScene.getBoundaryEdgesRBush(geometry);
         
-        // find all the points of the boundary with same (x, y) location
-        var sPoints = this.getPointsSame2DLocation(geometry, bEdges);
+        // find all the edges of the boundary with a vertex at the same (x, y) location
+        // as the edge
+        var sEdges = this.getEdgesSame2DLocation(geometry, bEdges);
+        
         
         // for each boundary edge, build the vertical wall creating all the required 
         // triangles
-        return this.addSideFromEdges(geometry, bEdges, sPoints);
+        return this.addSideFromEdges(geometry, bEdges, sEdges);
         
     }
     
@@ -768,9 +803,9 @@ class SVG3DScene {
         geometry = this.createUpperPart(geometry);
         
         geometry = this.createLowerPart(geometry, baseDepth);
-        
+
         geometry = this.addSides(geometry);
-        
+
         return geometry;
     }
 
@@ -861,8 +896,17 @@ SVG3DScene.getNonValidEdges = function(geometry) {
     return result;
 }
 
-SVG3DScene.getBoundaryEdges = function(geometry) {
-    var result = [];
+SVG3DScene.getOppositeBox = function(box, bbox) {
+    var elems = bbox.search(box);
+    for(var e of elems) {
+        if (e.edge[0] == box.edge[1] && e.edge[1] == box.edge[0])
+            return e;
+    }
+    return null;
+}
+
+SVG3DScene.getBoundaryEdgesRBush = function(geometry) {
+    var bbox = new rbush();
     
     // build a list of all the edges, but remove an
     // edge if the same edge (other direction) is already
@@ -871,14 +915,25 @@ SVG3DScene.getBoundaryEdges = function(geometry) {
         for(var j = 0; j != 3; ++j) {
             var v1 = SVG3DScene.getVertex(geometry.faces[i], j);
             var v2 = SVG3DScene.getVertex(geometry.faces[i], (j + 1) % 3);
-            var len = result.length;
-            result = result.filter(x => !((x[0] == v2) && (x[1] == v1)));
-            if (len == result.length)
-                result.push([v1, v2]);
+            
+            var p1 = geometry.vertices[v1];
+            var p2 = geometry.vertices[v2];
+
+            var box = {minX: Math.min(p1.x, p2.x), minY: Math.min(p1.y, p2.y), 
+                       maxX: Math.max(p1.x, p2.x), maxY: Math.max(p1.y, p2.y)};
+            box.edge = [v1, v2];
+            // search if this edge already exists
+            var eBox = SVG3DScene.getOppositeBox(box, bbox);
+            if (eBox) { // if it exists we remove it (it is an inner edge)
+                bbox.remove(eBox);
+            }
+            else { // otherwise we add it
+                bbox.insert(box);
+            }
         }
     }
             
-    return result;
+    return bbox;
 }
 
 

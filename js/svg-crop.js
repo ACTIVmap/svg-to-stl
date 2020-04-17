@@ -982,12 +982,12 @@ class SVGCrop {
             var precision = this.precision + (Math.floor(getBaseLog(10, this.getScale())));
 
             this.adjustToPrecision(precision);
+            
             if (this.options.wantBasePlate != null)
                 this.addBasePlateInternal();
 
             this.clipShapesUsingVisibility();
                     
-
             // center and scale the shapes
             this.rescaleAndCenter(options.objectWidth - (options.baseBuffer * 2));
             
