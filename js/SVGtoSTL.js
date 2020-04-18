@@ -382,10 +382,11 @@ class SVG3DScene {
         return triangles;
     }
     
-    findBestMatchingEdge(edges, target) {
+    findEdgeReplaceTriangles(edges, target) {
         var epsilon = 1e-6;
         var best = null;
         var bestDist = -1;
+        var bestID = -1;
         
         // find the best edge match
         for(var e = 0; e != edges.length; ++e) {
@@ -409,9 +410,11 @@ class SVG3DScene {
                     d2 = distanceSqrdPointSegment([target.coords[1].x, target.coords[1].y],
                                                   A, B, epsilon);
                 if (d2 >= 0) {
+                    // the target is inside the edge. This edge becomes the best one
                     var d = d1 + d2;
                     if ((best == null) || bestDist > d) {
                         best = edges[e];
+                        bestID = e;
                         best.ext = [ e1, e2 ];
                         bestDist = d;
                     }
@@ -419,28 +422,35 @@ class SVG3DScene {
             }
         }
         
-        
-        if (best != null) {
+        // if a good edge candidate has been found
+        if (best != null && !(best.ext[0] && best.ext[1])) {
+            if (best.ext[0] && best.ext[1]) {
+                return null;
+            }
             var idp1 = best.tr.indexOf(best.ids[0]);
             var idp2 = best.tr.indexOf(best.ids[1]);
-            if (best.ext[0]) {
-                var t1 = best.tr.slice();
-                t1[idp1] = target.ids[1];
-                var t2 = best.tr.slice();
-                t2[idp2] = target.ids[1];
+            
+            if (best.ext[0]) { // this new edge share its first vertex with the edge already in a triangle
+                var t1 = best.tr.slice(); // copy the triangle
+                t1[idp1] = target.ids[1]; // replace the id with the other vertex
+                var t2 = best.tr.slice(); // copy the triangle
+                t2[idp2] = target.ids[1]; // replace the id with the other vertex
                 return {before: best.trID, after: [t1, t2] };
             }
-            else if (best.ext[1]) {
-                var t1 = best.tr.slice();
-                t1[idp1] = target.ids[0];
-                var t2 = best.tr.slice();
-                t2[idp2] = target.ids[0];
+            else if (best.ext[1]) {  // this new edge share its second vertex with the edge already in a triangle
+                var t1 = best.tr.slice(); // copy the triangle
+                t1[idp1] = target.ids[0]; // replace the id with the other vertex
+                var t2 = best.tr.slice(); // copy the triangle
+                t2[idp2] = target.ids[0]; // replace the id with the other vertex
                 return {before: best.trID, after: [t1, t2] };                
             }
             else {
-                var t1 = best.tr.slice();
+                // both vertices of the new edge are inside the edge already in a triangle
+                // the triangle will be splitten into 3 triangles
+                var t1 = best.tr.slice(); 
                 var t2 = best.tr.slice();
                 var t3 = best.tr.slice();
+                // decide on the ordering
                 var goodOrder = distanceSqrd(pt2List(best.coords[0]), pt2List(target.coords[0])) <
                                 distanceSqrd(pt2List(best.coords[0]), pt2List(target.coords[1]));
                 var idN1 = goodOrder ? target.ids[0] : target.ids[1];
@@ -448,10 +458,9 @@ class SVG3DScene {
                 t1[idp2] = idN1;
                 t2[idp1] = idN1;
                 t2[idp2] = idN2;
-                t2[idp1] = idN2;
+                t3[idp1] = idN2;
                 
                 return {before: best.trID, after: [t1, t2, t3] };                
-                
             }
         }
         else {
@@ -459,6 +468,15 @@ class SVG3DScene {
         }
     }
     
+    findEdgeID(edges, edge) {
+        for(var i = 0; i != edges.length; ++i) {
+            if ((edges[i].ids[0] == edge[0] && edges[i].ids[1] == edge[1]) ||
+                (edges[i].ids[0] == edge[1] && edges[i].ids[1] == edge[0]))
+                return i;
+        }
+        return -1;
+    }
+
     reintroduceMissingEdges(triangles, contour, holes) {
         var contours = [contour].concat(holes);
         
@@ -481,35 +499,37 @@ class SVG3DScene {
             vertices = vertices.concat(holes[j]);
         }
 
-        var buildEdge = function(triangles, vertices, t, a, b) {
-            return { ids : [triangles[t][a], triangles[t][b]], trID: t, tr: triangles[t], 
-                        coords: [vertices[triangles[t][a]], vertices[triangles[t][b]]] }
-        }
         
-        // build a list of all the triangle edges
-        var tEdges = [];
-        for(var t = 0; t != triangles.length; ++t) {
-            for(var i = 0; i != 3; ++i) {
-                tEdges.push(buildEdge(triangles, vertices, t, i, (i + 1) % 3));
-            }
-        }
-        
-        
+        // build a list of all the edges along the border of the triangulated region 
+        // (do not keep inner edges)
+
+        var tEdges = SVG3DScene.getBoundaryEdgesFromLists(vertices, triangles);
+                
         // keep only edges that are not in the triangles
         edges = edges.filter(e => !edgesContains(tEdges, e));
 
         for(var e = 0; e != edges.length; ++e) {
-            var t = this.findBestMatchingEdge(tEdges, edges[e]);
+
+            var t = this.findEdgeReplaceTriangles(tEdges, edges[e]);
+
             if (t != null) {
+                var oEdges = [ [triangles[t.before][0], triangles[t.before][1]],
+                               [triangles[t.before][1], triangles[t.before][2]],
+                               [triangles[t.before][2], triangles[t.before][0]]];
                 triangles[t.before] = t.after[0];
-                for(var i = 0; i != 3; ++i) {
-                    tEdges[t.before * 3 + i] = buildEdge(triangles, vertices, t.before, i, (i + 1) %3);
-                }
                 
+                for(var i = 0; i != 3; ++i) {
+                    var idE = this.findEdgeID(tEdges, oEdges[i]);
+                    if (idE > 0) { // if it is a boundary edge
+                        tEdges[idE] = SVG3DScene.buildBorderEdgeDescription(triangles, vertices, t.before, i, (i + 1) %3);
+                    }
+
+                }
+
                 for(var i = 1; i < t.after.length; ++i) {
                     triangles.push(t.after[i]);
-                    for(var i = 0; i != 3; ++i) {
-                        tEdges.push(buildEdge(triangles, vertices, triangles.length - 1, i, (i + 1) % 3));
+                    for(var j = 0; j != 3; ++j) {
+                        tEdges.push(SVG3DScene.buildBorderEdgeDescription(triangles, vertices, triangles.length - 1, j, (j  + 1) % 3));
                     }
                 }
             }
@@ -534,6 +554,7 @@ class SVG3DScene {
             for(var j = 0; j != holes.length; ++j) {
                 holes[j] = toTHREE(holes[j]);
             }
+            
 
             
             var reverse = !THREE.ShapeUtils.isClockWise(vertices);
@@ -896,34 +917,75 @@ SVG3DScene.getNonValidEdges = function(geometry) {
     return result;
 }
 
-SVG3DScene.getOppositeBox = function(box, bbox) {
+SVG3DScene.getOppositeBox = function(box, bbox, isOppositeBox = null) {
     var elems = bbox.search(box);
     for(var e of elems) {
-        if (e.edge[0] == box.edge[1] && e.edge[1] == box.edge[0])
-            return e;
+        if (isOppositeBox) {
+            if (isOppositeBox(e, box))
+                return e;
+        }
+        else
+            if (e.edge[0] == box.edge[1] && e.edge[1] == box.edge[0])
+                return e;
     }
     return null;
 }
 
 SVG3DScene.getBoundaryEdgesRBush = function(geometry) {
+    return SVG3DScene.getBoundaryEdgesRBushFromLists(geometry.vertices, geometry.faces, 
+                                            function (p) {return p.x;},
+                                            function (p) {return p.y;},
+                                            SVG3DScene.getVertex,
+                                            function(triangles, vertices, t, a, b) {
+                                                return [SVG3DScene.getVertex(triangles[t], a),
+                                                        SVG3DScene.getVertex(triangles[t], b)];
+                                            },
+                                            null
+                                         );
+    
+}
+SVG3DScene.getBoundaryEdgesFromLists = function(vertices, faces) {
+    return SVG3DScene.getBoundaryEdgesRBushFromLists(vertices, faces,
+                                            function (p) {return p.x;},
+                                            function (p) {return p.y;},
+                                            function (face, i) { return face[i]; },
+                                            SVG3DScene.buildBorderEdgeDescription,
+                                            function (box1, box2) { return box1.edge.ids[0] == box2.edge.ids[1] && 
+                                                    box1.edge.ids[1] == box2.edge.ids[0]; }).all().map(b => b.edge);
+}
+SVG3DScene.buildBorderEdgeDescription = function(triangles, vertices, t, a, b) {
+            return { ids : [triangles[t][a], triangles[t][b]], trID: t, tr: triangles[t], 
+                        coords: [vertices[triangles[t][a]], vertices[triangles[t][b]]] }
+}
+
+SVG3DScene.getBoundaryEdgesRBushFromLists = function(vertices, faces, 
+                                                     getXFunction, getYFunction,
+                                                     getVertexFromTriangle,
+                                                     buildEdge,
+                                                     isOppositeBox
+                                                    ) {
     var bbox = new rbush();
     
     // build a list of all the edges, but remove an
     // edge if the same edge (other direction) is already
     // in the list
-    for(var i = 0; i != geometry.faces.length; ++i) {
+    for(var i = 0; i != faces.length; ++i) {
         for(var j = 0; j != 3; ++j) {
-            var v1 = SVG3DScene.getVertex(geometry.faces[i], j);
-            var v2 = SVG3DScene.getVertex(geometry.faces[i], (j + 1) % 3);
-            
-            var p1 = geometry.vertices[v1];
-            var p2 = geometry.vertices[v2];
+            var v1 = getVertexFromTriangle(faces[i], j);
+            var v2 = getVertexFromTriangle(faces[i], (j + 1) % 3);
 
-            var box = {minX: Math.min(p1.x, p2.x), minY: Math.min(p1.y, p2.y), 
-                       maxX: Math.max(p1.x, p2.x), maxY: Math.max(p1.y, p2.y)};
-            box.edge = [v1, v2];
+            var p1 = vertices[v1];
+            var p2 = vertices[v2];
+
+            var box = {minX: Math.min(getXFunction(p1), getXFunction(p2)), 
+                        minY: Math.min(getYFunction(p1), getYFunction(p2)), 
+                       maxX: Math.max(getXFunction(p1), getXFunction(p2)), 
+                        maxY: Math.max(getYFunction(p1), getYFunction(p2))};
+            box.edge = buildEdge(faces, vertices, i, j, (j + 1) % 3);
+
             // search if this edge already exists
-            var eBox = SVG3DScene.getOppositeBox(box, bbox);
+            var eBox = SVG3DScene.getOppositeBox(box, bbox, isOppositeBox);
+
             if (eBox) { // if it exists we remove it (it is an inner edge)
                 bbox.remove(eBox);
             }

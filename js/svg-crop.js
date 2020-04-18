@@ -227,10 +227,9 @@ function addMissingPointsInPathFromRBush(path, points, precision, scale) {
         
         if (inside.length > 0) {
             // sort wrt position
-            inside.sort(function(a, b) { return a.position < b.position; });
+            inside.sort(function(a, b) { return a.position - b.position; });
             // remove doubles 
             inside = inside.filter(function(item, pos, ary) { return !pos || item.position != ary[pos - 1].position;});
-            
             // add them to the result
             for(var ii of inside) {
                 result.push(ii.point);
