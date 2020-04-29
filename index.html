@@ -26,6 +26,9 @@
     <!-- Martinez clipping algorithm to compute boolean operations between 2D shapes -->
     <script src="js/external/martinez.min.js?version=Eeweigh0"></script>
     
+    <!-- Add a progress bar -->
+    <script src="js/progressInfoBox.js"></script>
+
     <!-- Color picker -->
     <script src="js/external/bootstrap-colorpicker.min.js"></script>
     <link rel="stylesheet" href="css/external/bootstrap-colorpicker.min.css">
@@ -358,6 +361,7 @@
         $('#dropzone').on('dragleave', dragLeave);
         $('#dropzone').on('drop', changeUploadFile);
 
+        window.progressBar = new ProgressInfoBox("body");
     });
 
     dragOverHTML = function(e) {
