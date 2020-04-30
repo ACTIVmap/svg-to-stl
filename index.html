@@ -544,7 +544,7 @@
             clearWaitingProcessing();
         }
         else if (e.data[0] == "shapesfound") {
-            $("#svgText").html(e.data[2] + translation("shapesfound", "shapes found in this image.") + "<br />" + sizeDefinition);
+            $("#svgText").html(e.data[1] + translation("shapesfound", "shapes found in this image.") + "<br />" + sizeDefinition);
         }
         else if (e.data[0] == "oneshapefound") {
             $("#svgText").html(translation("oneshapefound", "One shape found in this image.") + "<br />" + sizeDefinition);
