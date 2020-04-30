@@ -60,7 +60,7 @@ $(document).ready( function () {
         window.contents["en"][$(this).attr ('tkey')] = $(this).html();
     });
     $("[tkeyvalue]").each (function (index) {
-        window.contents["en"][$(this).attr ('tkeyvalue')] = $(this).html();
+        window.contents["en"][$(this).attr ('tkeyvalue')] = $(this).attr("value");
     });
     
     // get language from the browser
