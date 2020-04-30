@@ -23,7 +23,7 @@ function getMaximumSize(mesh) {
 
 
 // Takes an SVG structure, and returns a scene to render as a 3D STL
-function renderObject(svgStructure, scene, group, camera, options) {
+function renderObject(vertices, faces, group, camera, options) {
     console.log("Rendering 3D object...");
     // Solid Color
     options.color = new THREE.Color( options.objectColor ); 
@@ -37,8 +37,16 @@ function renderObject(svgStructure, scene, group, camera, options) {
           emissive: options.color,
           side:THREE.DoubleSide});
 
-    // Create an extrusion from the SVG path shapes
-    var finalObj = getExtrudedSvgObject(svgStructure, options);
+
+    var geometry = new THREE.Geometry();
+    for(var v of vertices) {
+        geometry.vertices.push(new THREE.Vector3(v.x, v.y, v.z));
+    }
+    for (var f of faces) {
+        geometry.faces.push(new THREE.Face3(f.a, f.b, f.c));
+    }
+    
+    var finalObj = new THREE.Mesh(geometry, options.material);
     
     var width = getMaximumSize(finalObj);
 
@@ -84,10 +92,9 @@ function renderObject(svgStructure, scene, group, camera, options) {
 };
 
 
-// Creates a three.js Mesh object out of SVG paths
+// Creates a Mesh (list of vertices and faces) out of SVG paths
 function getExtrudedSvgObject(svgStructure, options) {
-    
-    
+        
     // get the depths following the colors of the svg mesh
     var depths = [];
     for(var i = 0; i < svgStructure.getColors().length; ++i) {
@@ -100,11 +107,13 @@ function getExtrudedSvgObject(svgStructure, options) {
         
     // stick similar curves if required
     if (options.mergeDistance > 0) {
+        postMessage(["progress", "stickSimilarCurves"]);
         scene.stickSimilarCurves(options.mergeDistance);
     }
-    
+    postMessage(["progress", "create3Dshape"]);
+
     // finally, generate 3D shapes with an extrude process
-    return scene.create3DShape(options.baseDepth, options.wantInvertedType, options.material);
+    return scene.create3DShape(options.baseDepth, options.wantInvertedType);
 
 
 };
@@ -183,7 +192,9 @@ function toTHREE(points) {
 class SVG3DScene {
     
     constructor(shapes, depths, silhouette) {
+        postMessage(["progress", "shapeToListPath"]);
         this.paths = SVGShape2D.shapesToList(shapes);
+        postMessage(["progress", "shapeToListSilhouette"]);
         this.silhouette = SVGShape2D.shapesToList(silhouette);
         this.depths = depths;
         
@@ -835,17 +846,20 @@ class SVG3DScene {
     
     create3DShape(baseDepth, wantInvertedType, material) {
         
+        postMessage(["progress", "mergeSimilarDepth"]);
         // merge regions with similar depth
         this.mergePathsSameDepth();
-          
+        
+        postMessage(["progress", "fillShapes"]);
         // fill shapes
         this.shapes = this.fillShapes(this.paths, this.depths);
         this.silhouetteShapes = this.fillShapes(this.silhouette);
         
+        postMessage(["progress", "extrudeShapes"]);
         // create 3D geometry from shapes
         var extruded = this.create3DFromShapes(baseDepth);
         
-        
+        postMessage(["progress", "fineTuning3D"]);
         // Use negative scaling to invert the image
         // flip the image to change from SVG orientation to Three.js orientation
         if(!wantInvertedType) {
@@ -861,12 +875,14 @@ class SVG3DScene {
         extruded.computeFaceNormals();
         
         // create the mesh corresponding to this geometry
-        var mesh = new THREE.Mesh(extruded, material);
+        var mesh = new THREE.Mesh(extruded);
         
         // So that these attributes of the mesh are populated for later
         mesh.geometry.computeBoundingBox();
         mesh.geometry.computeBoundingSphere();
-        return mesh;
+
+
+        return { "vertices": mesh.geometry.vertices, "faces": mesh.geometry.faces};
     }
 
 }

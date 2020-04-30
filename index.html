@@ -8,8 +8,6 @@
     <script src="js/external/three.js"></script>
     <script src="js/external/FaceNormalsHelper.js"></script>
     <script src="js/external/OrbitControls.js"></script>
-    <!-- Turn an SVG path into a three.js geometry -->
-    <script src="js/external/d3-threeD.js"></script>
     <!-- Write a three.js geometry into ASCII STL -->
     <script src="js/external/STLExporter.js"></script>
     <!-- "Flatten" an SVG document by applying all transforms to the paths -->
@@ -20,8 +18,9 @@
     <script src="js/external/rbush.min.js"></script>
     <!-- Code that pulls all of the above together -->
     <script src="js/SVGtoSTL.js?version=Eeweigh0"></script>
-    <!-- crop svgs according to clip-paths and masks -->
-    <script src="js/svg-crop.js?version=Eeweigh0"></script>
+
+    <!-- a 2D box class  -->
+    <script src="js/box.js"></script>
     
     <!-- Martinez clipping algorithm to compute boolean operations between 2D shapes -->
     <script src="js/external/martinez.min.js?version=Eeweigh0"></script>
@@ -44,7 +43,7 @@
     <script src="js/jquery-multilang.js"></script>
     
     <style>
-        #dropzone { 
+        #dropzone, #waitingScreen { 
             z-index: 1000;
             position: fixed;
             left: 0;
@@ -55,13 +54,17 @@
             opacity: 0.5;
             display: none;
         }
-        #dropzone.visible {
+        #waitingScreen {
+            background-color: #8b9cac;
+        }
+        #dropzone.visible, #waitingScreen.visible {
             display: block;
         }
     </style>
   </head>
   <body>
     <div id="dropzone"></div>
+    <div id="waitingScreen"></div>
     <div class="container-xl" id="main-container">
 
      <div class="row">
@@ -289,6 +292,7 @@
                 <div class="card-body">
                     <h5 class="card-title" tkey="genMesh">Generated mesh</h5>
                     <p class="card-text" id="meshText"></p>
+                    <p class="card-text" id="svgWarning"></p>
                     <form>
                         <input type="submit" class="btn btn-primary btn-block" id="download" disabled="disabled" value="Download mesh" tkeyvalue="download" />
                     </form>
@@ -324,11 +328,11 @@
             e.preventDefault();
             // Numeric validations would go here
             clearGroup(group);
-            // regenerate mesh
-            loadSVGStructureSetOptions();
-            var geom = renderObject(svgStructure, scene, group, camera, options);
-            // give info to the user about the mesh
-            displayInfos(geom);
+
+            window.progressBar.start();
+
+            // run full process in the worker
+            runFullProcess();
 
             return true;
         });   
@@ -382,9 +386,8 @@
     changeUploadFile = function(e) {
         e.stopPropagation();
         e.preventDefault();
-        loadImage(e.originalEvent.dataTransfer.files[0]);
         $("#dropzone").removeClass("visible");
-
+        loadImage(e.originalEvent.dataTransfer.files[0]);
     }
     
     // given geometric information computed from a mesh
@@ -408,6 +411,11 @@
         } catch ( e ) {
             return false;
         }
+    }
+
+    function clearWaitingProcessing() {
+        $("#waitingScreen").removeClass("visible");
+        window.progressBar.stop();
     }
 
     // Check for FileReader API support
@@ -453,6 +461,108 @@
     var initialMaxDepth = 3;
     // a storage of the depths associated to colors.
     var colorDepths = {"#000000" : initialMaxDepth };
+
+    // create a worker to run process in a separated thread
+    var myWorker = new Worker('js/worker.js');
+
+    myWorker.onmessage = function(e) {
+        if (e.data[0] == "mesh") {
+
+            window.progressBar.update(translation("render3D", "Render 3D object"), 98);
+            clearGroup(group);
+            // Render 3D object
+            var geom = renderObject(e.data[1], e.data[2], group, camera, options);
+
+            // give info to the user about the mesh
+            displayInfos(geom);
+            clearWaitingProcessing();
+
+            // render button is active
+            $('#renderButton').prop('disabled', false);
+            $('#download').prop('disabled', false);
+
+        }
+        else if (e.data[0] == "runMeshProcessing") {
+            // load options
+            options = getFormSelections();
+
+            // run next steps
+            myWorker.postMessage(["fullProcessMesh", options, colorDepths]);
+        }
+        else if (e.data[0] == "SVGColors") {
+            console.log("on choppe les couleurs", JSON.stringify(e.data[1]));
+            $("#tableDepths").html(e.data[1]);
+        }
+        else if (e.data[0] == "progress") {
+            switch(String(e.data[1])) {
+                case "buildSVGStructure":
+                    window.progressBar.update(translation("buildSVGStructure", "Build internal SVG structure"), 12);
+                    break;
+                case "applyMasksAndClips":
+                    window.progressBar.update(translation("applyMasksAndClips", "Apply masks and clips"), 15);
+                    break;
+                case "addBasePlate":
+                    window.progressBar.update(translation("addBasePlate", "Add base plate"), 20);
+                    break;
+                case "clipShapesUsingVisibility":
+                    window.progressBar.update(translation("clipShapesUsingVisibility", "Clip shapes using visibility"), 21);
+                    break;
+                case "rescaleAndCenter":
+                    window.progressBar.update(translation("rescaleAndCenter", "Rescale and center"), 22);
+                    break;
+                case "addMissingPoints":
+                    window.progressBar.update(translation("addMissingPoints", "Add missing points"), 23);
+                    break;
+                case "adjustToPrecision":
+                    window.progressBar.update(translation("adjustToPrecision", "Adjust to precision"), 30);
+                    break;
+                case "shapeToListPath":
+                    window.progressBar.update(translation("shapeToListPath", "Convert shapes to list of paths"), 50);
+                    break;
+                case "shapeToListSilhouette":
+                    window.progressBar.update(translation("shapeToListSilhouette", "Convert silhouette to list of paths"), 55);
+                    break;
+                case "create3Dshape":
+                    window.progressBar.update(translation("create3Dshape", "Start 3D shapes creation"), 60);
+                    break;
+                case "mergeSimilarDepth":
+                    window.progressBar.update(translation("mergeSimilarDepth", "Merge shapes with similar depth"), 65);
+                    break;
+                case "fillShapes":
+                    window.progressBar.update(translation("fillShapes", "Fill shapes"), 80);
+                    break;
+                case "extrudeShapes":
+                    window.progressBar.update(translation("extrudeShapes", "Extrude shapes"), 85);
+                    break;
+                case "fineTuning3D":
+                    window.progressBar.update(translation("fineTuning3D", "Fine tuing of 3D shapes"), 90);
+                    break;
+            }
+        }
+        else if (e.data[0] == "noshapefound") {
+            $("#svgText").html(translation("noshapefound", "No shape found in this image.") + "<br />" + sizeDefinition);
+            clearWaitingProcessing();
+        }
+        else if (e.data[0] == "shapesfound") {
+            $("#svgText").html(e.data[2] + translation("shapesfound", "shapes found in this image.") + "<br />" + sizeDefinition);
+        }
+        else if (e.data[0] == "oneshapefound") {
+            $("#svgText").html(translation("oneshapefound", "One shape found in this image.") + "<br />" + sizeDefinition);
+        }
+        else if (e.data[0] == "warning") {
+            setWarningMessage(e.data[1]);
+        }
+        else if (e.data[0] == "error") {
+            resetViewer("");
+            clearWaitingProcessing();
+            $("#meshText").html("<div class=\"alert alert-danger\" role=\"alert\"><strong>" + translation("errorReconstruction", "Error during reconstruction:") + "</strong>: " + e.data[1] + "</div>");
+
+        }
+        else
+            console.log("Message not handled: ", JSON.stringify(e.data));
+    };
+
+
     
     // Pull options from the form
     function getFormSelections() {
@@ -484,50 +594,7 @@
         };
     }
     
-    function hexToRgb(hex) {
-        var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? {
-            r: parseInt(result[1], 16),
-            g: parseInt(result[2], 16),
-            b: parseInt(result[3], 16)
-        } : null;
-    }
 
-
-    
-    function getSVGColor(color) {
-        color = color.toLowerCase();
-        if (color in colorDepths) {
-            return colorDepths[color];
-        }
-        else {
-            rgb = hexToRgb(color);
-            val = (3 - (rgb.r + rgb.g + rgb.b) / 256 / 3 * initialMaxDepth).toFixed(2);
-            colorDepths[color] = val;
-            return val;
-        }
-    }
-    function setSVGColors(svgColors) {
-        tableLines = "";
-        
-        // sort the list and remove multiple instances
-        list = svgColors.filter((x, i, a) => a.indexOf(x) == i).sort();
-        for(i = 0; i < list.length; i++) {
-            if (list[i] != "") {
-                value = getSVGColor(list[i]);
-                tableLines += "<tr id=\"lineDepth" + i + "\">" + 
-                                "<th scope=\"row\" style=\"vertical-align: middle\">" + i + "</th>" +
-                                "<td style=\"vertical-align: middle\"><span style=\"background: " + list[i] + "; cursor: auto" +
-                                (value > 1.5 ? "; color: #ffffff" : "; color: #000000") +
-                                "\" class=\"btn btn-block\">" + list[i] + "</span></td>" +
-                                "<td><input type=\"number\" class=\"form-control\" id=\"typeDepth" + i + "\" value=\"" +
-                                value + "\"></td>" +
-                                "</tr>";
-            }
-        }
-        $("#tableDepths").html(tableLines);
-
-    }
 
     function handleFileSelect(evt) {
     
@@ -537,6 +604,9 @@
       
     }
     
+    function setWarningMessage(msg) {
+        $("#svgWarning").html("<div class=\"alert alert-warning\"><strong>" + translation("errorReconstruction", "Error during reconstruction:") + "</strong> " + msg + "</div>");
+    }
     
     function resetViewer(msg) {
         
@@ -547,33 +617,20 @@
         group.add(helper);
         camera.position.set(0, -10, 10);
         $("#meshText").html("");
+        $("#svgWarning").html("");
 
         // clear 2D view
         $('#uploadedSVG').replaceWith("<img src=\"img/image.svg\" class=\"card-img-top\" alt=\"svg image (not yet selected)\" id=\"uploadedSVG\">");
         $("#svgTitle").html("");
-        $("#svgText").html("<div class=\"alert alert-danger\">" + msg + "</div>");
+        if (msg && msg != "")
+            $("#svgText").html("<div class=\"alert alert-danger\">" + msg + "</div>");
         
         // disable buttons
         $('#renderButton').prop('disabled', true);
         $('#download').prop('disabled', true);
     }
     
-    function loadSVGStructureSetOptions() {
 
-          // get selected options
-          options = getFormSelections();
-
-          viewBox = [doc.viewBox.baseVal.x, doc.viewBox.baseVal.y,
-                    doc.viewBox.baseVal.width, doc.viewBox.baseVal.height];
-
-          svgStructure = new SVGCrop('uploadedSVG', options, viewBox);
-          
-          // set SVG colors in the UI and in the storage
-          setSVGColors(svgStructure.getPalette());
-
-          // update options
-          options = getFormSelections();
-    }
     
     function removeID(string) {
         var expr = new RegExp("id=[\"\'][a-zA-Z][A-Za-z0-9\-\:\.]*[\"\']", 'g');
@@ -583,33 +640,44 @@
     
     function removeTwins(elem, exceptions = []) {
         if (elem && elem.childNodes && elem.childNodes.length) {
-            if (!(elem.tagName.includes(exceptions))) {
-                // first remove twins
-                var childTXT = new Set(); // to speedup search
-                var toBeRemoved = []; // to preserve ordering
-                for(var i = 0; i != elem.childNodes.length; ++i) {
-                    var html = elem.childNodes[i].outerHTML;
-                    if (html) {
+            // first remove twins
+            var childTXT = new Set(); // to speedup search
+            var toBeRemoved = []; // to preserve ordering
+            for(var i = 0; i != elem.childNodes.length; ++i) {
+                var html = elem.childNodes[i].outerHTML;
+                if (html) {
+                    if ($.inArray(elem.childNodes[i].tagName, exceptions) < 0)
                         html = removeID(html);
-                        if (childTXT.has(html)) {
-                            toBeRemoved.push(elem.childNodes[i]);
-                        }
-                        else {
-                            childTXT.add(html);
-                        }
+                    if (childTXT.has(html)) {
+                        toBeRemoved.push(elem.childNodes[i]);
+                    }
+                    else {
+                        childTXT.add(html);
                     }
                 }
-                for(var child of toBeRemoved) {
-                    elem.removeChild(child);
-                }
+            }
+            for(var child of toBeRemoved) {
+                elem.removeChild(child);
             }
             
             // then remove twins in the childen
             for(var i = 0; i != elem.childNodes.length; ++i) {
-                removeTwins(elem.childNodes[i], ["clipPath", "mask"]);
+                removeTwins(elem.childNodes[i], exceptions);
             }
         }
         
+    }
+
+    function runFullProcess() {
+        var viewBox = [doc.viewBox.baseVal.x, doc.viewBox.baseVal.y,
+              doc.viewBox.baseVal.width, doc.viewBox.baseVal.height];
+
+        window.progressBar.update(translation("processSVG", "Process SVG shapes"), 10);
+        options = getFormSelections();
+        // run full process in the worker
+        var str = $('<div>').append($("#uploadedSVG").clone()).html();
+        myWorker.postMessage(["fullProcessSVG", str, options, viewBox, colorDepths]);
+
     }
     
     function loadImage(file) {
@@ -629,6 +697,12 @@
       readerString.onload = (function(uploadedFile) {
         return function(e) {
 
+          window.progressBar.start(translation("parseSVG", "Parsing SVG file."));
+          $("#waitingScreen").addClass("visible");
+          // clear warning
+          $("#svgWarning").html("");
+
+
           console.log("Parsing SVG paths...");
           // Get the paths out of the SVG
           try {
@@ -636,8 +710,12 @@
           }
           catch (error) {
             resetViewer(translation("errorXML", "<strong>Error:</strong> SVG file is not XML-valid."));
+            clearWaitingProcessing();
             return;
           }            
+
+          // Store the file name in a global
+          fileName = uploadedFile.name;
 
           // set on-screen
           doc = document.importNode(svgDoc.documentElement, true);
@@ -663,6 +741,8 @@
             sizeDefinition = translation("noFabSize", "No fabrication size defined in this file.");
 
           
+          window.progressBar.update(translation("cleanSVG", "Cleaning SVG file."), 1);
+
           $('#uploadedSVG').replaceWith(doc);
           $('#uploadedSVG').addClass("card-img-top");
           $('#uploadedSVG').removeAttr("width");
@@ -675,43 +755,23 @@
           // remove empty groups
           $("#uploadedSVG g:not(:has(*))").remove();
 
+          window.progressBar.update(translation("removeMultipleSVG", "Removing multiple instances of similar SVG nodes."), 3);
+          // remove all twins (two SVG elements with the same parent, and identical)
+          removeTwins(document.getElementById('uploadedSVG'), ["clipPath", "mask"]);
+
+
+          window.progressBar.update(translation("flattenSVG", "Applying all SVG transformations."), 4);
           // "Flatten" the SVG by applying all transforms to shapes and paths
           flatten(document.getElementById('uploadedSVG'));
 
+          window.progressBar.update(translation("removeMultipleSVG", "Removing multiple instances of similar SVG nodes."), 7);
           // remove all twins (two SVG elements with the same parent, and identical)
-          removeTwins(document.getElementById('uploadedSVG'));
+          removeTwins(document.getElementById('uploadedSVG'), ["clipPath", "mask"]);
         
-          
-          // load the svg structure
-          // TODO: do we need this reverseWO?
-          loadSVGStructureSetOptions();
-
-          
-          if (svgStructure.getNbShapes() == 0)
-            $("#svgText").html(translation("noshapefound", "No shape found in this image.") + "<br />" + sizeDefinition);
-          else if (svgStructure.getNbShapes() == 1)
-            $("#svgText").html(translation("onshapefound", "One shape found in this image.<br />") + sizeDefinition);
-          else
-            $("#svgText").html(svgStructure.getNbShapes() + translation("shapesfound", " shapes found in this image.<br />") + sizeDefinition);
-            
-          // Store the file name in a global
-          fileName = uploadedFile.name;
-
           // display information about the svg file
           $("#svgTitle").html(fileName);
-          
-          // In case this is the second file uploaded.
-          clearGroup(group);
-          
-          // Render the SVG for the first time
-          var geom = renderObject(svgStructure, scene, group, camera, options);
-          
-          // give info to the user about the mesh
-          displayInfos(geom);
-          
-          // render button is active
-          $('#renderButton').prop('disabled', false);
-          $('#download').prop('disabled', false);
+
+          runFullProcess();
 
         };
       })(file);

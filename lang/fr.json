@@ -60,6 +60,23 @@
     "parseSVG": "Analyse du fichier SVG",
     "cleanSVG": "Nettoyage du fichier SVG",
     "flattenSVG": "Application de toutes le transformations SVG",
-    "removeMultipleSVG": "Suppressions des éléments multiples similaires dans le fichier SVG"
-
+    "removeMultipleSVG": "Suppressions des éléments multiples similaires dans le fichier SVG",
+    "processSVG": "Traitement des formes SVG",
+    "render3D": "Restitution de l'objet 3D",
+    "build3D": "Fabrication de l'objet 3D",
+    "buildSVGStructure": "Fabrication de la structure SVG interne",
+    "applyMasksAndClips": "Application des masques et des clips",
+    "addBasePlate": "Ajout du plateau",
+     "clipShapesUsingVisibility": "Découpage des formes suivant la visibilité",
+     "rescaleAndCenter": "Mise à l'échelle et centrage",
+     "addMissingPoints": "Ajout des points manquants",
+     "adjustToPrecision": "Ajustement à la précision",
+     "shapeToListPath": "Conversion des formes en liste de chemins",
+     "shapeToListSilhouette": "Conversion de la silhouette en liste de chemins",
+     "create3Dshape": "Début de la création de la forme 3D",
+     "mergeSimilarDepth": "Fusion des formes avec profondeur similaire",
+     "fillShapes": "Remplissage des formes",
+     "extrudeShapes": "Extrusion des formes",
+     "fineTuning3D": "Ajustement fin des formes 3D",
+     "errorReconstruction": "Erreur pendant la reconstruction&nbsp;:"
 }

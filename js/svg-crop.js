@@ -1,121 +1,4 @@
 
-/** 
- ** 
- ** class Box: a 2D bounding box 
- **  
- **  
- **/
-class Box {
-    constructor(left, right, top, bottom, valid = true) {
-        this.left = left;
-        this.right = right;
-        this.top = top;
-        this.bottom = bottom;
-        this.valid = valid;
-    }
-        
-};
-
-
-Box.prototype.toRBushItem = function() {
-    return { minX: this.left, minY: this.top, maxX: this.right, maxY: this.bottom };
-}
-
-Box.prototype.getMaximumSize = function () {
-    var width = this.right - this.left;
-    var height = this.bottom - this.top;
-    if (width > height)
-        return width;
-    else
-        return height;
-}
-
-Box.prototype.add = function(box) {
-    if (box.valid) {
-        if (box.left < this.left) this.left = box.left;
-        if (box.top < this.top) this.top = box.top;
-        if (box.right > this.right) this.right = box.right;
-        if (box.bottom > this.bottom) this.bottom = box.bottom;
-    }
-}
-
-Box.prototype.addPoint = function(point) {
-    if (this.valid) {
-        if (point[0] < this.left) this.left = point[0];
-        if (point[1] < this.top) this.top = point[1];
-        if (point[0] > this.right) this.right = point[0];
-        if (point[1] > this.bottom) this.bottom = point[1];
-    }
-}
-
-Box.prototype.center = function() {
-    return [(this.left + this.right) / 2, (this.bottom + this.top) / 2];
-}
-
-Box.invalid = function() {
-    return new Box(0, 0, 0, 0, false);
-}
-
-Box.fromPaths = function(paths) {
-    if (paths.length == 0)
-        return Box.invalid();
-    
-    var result = Box.fromPath(paths[0]);
-    
-    for(var i = 1; i < paths.length; ++i) {
-        result.add(Box.fromPath(paths[i]));
-    }
-    return result;
-
-};
-
-
-Box.fromShape = function(shape) {
-    var result = Box.fromPath(shape.polyline);
-    
-    if (shape.holes.length > 0) {
-        result.add(Box.fromPaths(shape.holes));
-    }
-    return result;
-
-};
-
-Box.fromShapes = function(shapes) {
-    if (shapes.length == 0)
-        return Box.invalid();
-    
-    
-    var result = Box.fromShape(shapes[0]);
-    
-    for(var i = 1; i < shapes.length; ++i) {
-        result.add(Box.fromShape(shapes[i]));
-    }
-    return result;
-}
-
-Box.fromPath = function(path) {
-    if (path.length == 0)
-        return Box.invalid();
-    var result = new Box(path[0][0], path[0][0], path[0][1], path[0][1]);
-    
-    for(var i = 1; i != path.length; ++i) {
-        result.addPoint(path[i]);
-    }
-    return result;
-};
-
-
-Box.fromXY = function(vertices) {
-    if (vertices.length == 0)
-        return Box.invalid();
-    var result = new Box(vertices[0].x, vertices[0].x, vertices[0].y, vertices[0].y);
-    
-    for(var i = 1; i != vertices.length; ++i) {
-        result.addPoint([vertices[i].x, vertices[i].y]);
-    }
-    return result;
-
-}
 
 
 function inside(point, vs) {
@@ -522,7 +405,7 @@ TreeNode.root = function(color = "") {
 function getFillColor(elem) {
     var regex = /([\w-]*)\s*:\s*([^;]*)/g;
     var match, properties={};
-    while(match = regex.exec($(elem).attr("style"))) properties[match[1].trim()] = match[2].trim();
+    while(match = regex.exec(elem["attributes"]["style"])) properties[match[1].trim()] = match[2].trim();
     return "fill" in properties ? properties["fill"] : "";
 }
 
@@ -535,6 +418,27 @@ function getIDFromURL(url) {
         return null;
 }
 
+function getElementById(elem, id) {
+    if (!(elem.constructor === Object))
+        return null;
+
+    if ("attributes" in elem && "id" in elem["attributes"]) {
+        if (elem["attributes"]["id"] == id)
+            return elem;
+    }
+
+    if ("children" in elem) {
+        for(var c of elem["children"]) {
+            var r = getElementById(c, id);
+            if (r != null)
+                return r;
+        }
+    }
+
+    return null;
+    
+}
+
 /* 
  * A SVG group is defined by:
  *  * a SVGshape2D or a list of SVGgroup
@@ -544,8 +448,9 @@ function getIDFromURL(url) {
  */
 class SVGGroup2D {
     constructor(elem, root = null, forceClip = false) {
-        if (root == null)
+        if (root == null) {
             root = elem;
+        }
         
         this.shape = null;
         this.content = null;
@@ -553,16 +458,24 @@ class SVGGroup2D {
         this.mask = null;
         this.svgColor = null;
         
-        if (elem) {
-            if (elem.children && elem.children.length && (forceClip || !(elem instanceof SVGClipPathElement) && !(elem instanceof SVGMaskElement))) {
+        if (elem && elem.constructor == Object) {
+            if (elem["children"] && elem["tagName"] && elem["children"].length && 
+            (forceClip || !(elem["tagName"] == "clipPath") && !(elem["tagName"] == "mask"))) {
                 this.content = [];
-                for(var e = 0; e != elem.children.length; ++e) {
-                    var child = new SVGGroup2D(elem.children[e], root);
-                    if (!child.empty())
+                for(var e = 0; e != elem["children"].length; ++e) {
+                    var child = null;
+                    try {
+                        var child = new SVGGroup2D(elem["children"][e], root);
+                    }
+                    catch (e) {
+                        console.log("Error during shape conversion from SVG. Ignore it.");
+                        postMessage(["warning", e.toString() + ". Some shapes might not be present in the final mesh."]);
+                    }
+                    if (child != null && !child.empty())
                         this.content.push(child);
                 }
                 this.svgColor = getFillColor(elem);
-                if (elem instanceof SVGSVGElement && this.svgColor == "")
+                if (elem["tagName"] == "svg" && this.svgColor == "")
                     this.svgColor = "#000000";
 
                 if (this.svgColor != "") {
@@ -573,9 +486,9 @@ class SVGGroup2D {
                 else
                     this.svgColor = null;
             }
-            else if (elem instanceof SVGPathElement) {
+            else if (elem["tagName"] && elem["tagName"] == "path") {
                 // read SVG path
-                var svgPath = elem.getAttribute("d");
+                var svgPath = elem["attributes"]["d"];
                 
                 this.svgColor = getFillColor(elem);
                 
@@ -611,18 +524,18 @@ class SVGGroup2D {
                 console.log("WARNING: svg element not handled - " + elem);
             }
 
-            if (elem.hasAttribute("clip-path")) {
-                var id = getIDFromURL(elem.getAttribute("clip-path"));
+            if (elem["attributes"] && ("clip-path" in elem["attributes"])) {
+                var id = getIDFromURL(elem["attributes"]["clip-path"]);
                 if (id) {
-                    var newElem = root.getElementById(id);
+                    var newElem = getElementById(root, id);
                     this.clipPath = new SVGGroup2D(newElem, root, true);
                 }
                 
             }
-            if (elem.hasAttribute("mask")) {
-                var id = getIDFromURL(elem.getAttribute("mask"));
+            if (elem["attributes"] && ("mask" in elem["attributes"])) {
+                var id = getIDFromURL(elem["attributes"]["mask"]);
                 if (id) {
-                    var newElem = root.getElementById(id);
+                    var newElem = getElementById(root, id);
                     this.mask = new SVGGroup2D(newElem, root, true);
                 }
                 
@@ -913,8 +826,8 @@ class SpatialClipping {
 class SVGCrop {
 
     
-    constructor(svgID, options, viewBox) {
-        this.svgNode = document.getElementById(svgID);
+    constructor(svgTXT, options, viewBox) {
+        this.svgTXT = svgTXT;
         this.options = options;
         this.silhouette = null;
         this.svgWindingIsCW = options.svgWindingIsCW;
@@ -989,9 +902,13 @@ class SVGCrop {
         SVGGroup2D.options = this.options;
         SVGGroup2D.scale = this.getScale();
         
-        this.svgStructure = new SVGGroup2D(this.svgNode);
+
+        postMessage(["progress", "buildSVGStructure"]);
+        var xml = tXml(this.svgTXT)[0];
+        this.svgStructure = new SVGGroup2D(xml);
         // produce a list of shapes (hierarchical structure is only required
         // for mask and clip)
+        postMessage(["progress", "applyMasksAndClips"]);
         this.shapes = this.svgStructure.flatten();
         
         if (this.shapes.length > 0) {
@@ -1000,18 +917,24 @@ class SVGCrop {
 
             this.adjustToPrecision(precision);
             
-            if (this.options.wantBasePlate != null)
+            if (this.options.wantBasePlate != null) {
+                postMessage(["progress", "addBasePlate"]);
                 this.addBasePlateInternal();
+            }
 
+            postMessage(["progress", "clipShapesUsingVisibility"]);
             this.clipShapesUsingVisibility();
                     
+            postMessage(["progress", "rescaleAndCenter"]);
             // center and scale the shapes
             this.rescaleAndCenter(options.objectWidth - (options.baseBuffer * 2));
             
+            postMessage(["progress", "addMissingPoints"]);
             // add possible missing vertices along the paths
             // when two shapes are sharing a common edge
             this.addMissingPoints();
             
+            postMessage(["progress", "adjustToPrecision"]);
             // adjust to precision before any other step
             this.adjustToPrecision(this.precision);
             

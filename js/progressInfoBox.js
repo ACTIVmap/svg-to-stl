@@ -14,13 +14,16 @@ class ProgressInfoBox {
         this.starting = new Date().getTime();
         this.message = msg;
         this.percentage = 0;
-        var _this = this;
-        setTimeout(function() {_this.showInfoBox();}, 500);
+        this.showInfoBox();
     }
 
-    update(msg, percentage) {
+    update(msg, percentage = null) {
         this.message = msg;
-        this.percentage = percentage;
+        if (percentage == null)
+            this.percentage += 1;
+        else
+            this.percentage = percentage;
+
         this.updateInfoBox();
     }
 
@@ -50,6 +53,7 @@ class ProgressInfoBox {
     }
 
     updateInfoBox() {
+        console.log("Progess bar (" + this.percentage + "%): " + this.message);
         $("#" + this.id + " .msg").html(this.message);
         $("#" + this.id + " .progress-bar").width(this.percentage + "%");
     }
@@ -60,6 +64,7 @@ class ProgressInfoBox {
 
     showInfoBox() {
         if (this.starting != null) {
+            this.updateInfoBox();
             $("#" + this.id).modal("show");
         }
     }
