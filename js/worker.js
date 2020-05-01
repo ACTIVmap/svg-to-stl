@@ -5,7 +5,8 @@ importScripts('external/tXml.js',
                 "external/three.js", 
                 "external/rbush.min.js", 
                 "external/martinez.min.js", 
-                "box.js");
+                "box.js",
+                "external/clipper.js");
 
 var options = null;
 
@@ -71,7 +72,7 @@ function processNewSVG(svg, opt, viewBox, cdepths) {
     // TODO: do we need this reverseWO?
     try {
         svgStructure = new SVGCrop(svg, options, viewBox);
-        
+
         // set SVG colors in the UI and in the storage
         setSVGColors(svgStructure.getPalette());
 

@@ -304,8 +304,6 @@ class SVG3DScene {
         
     }
     
-    // clip path using visibility
-
     
     
     findNeighborNotNull(list, id, step) {
