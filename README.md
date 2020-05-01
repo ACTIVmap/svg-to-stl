@@ -21,9 +21,9 @@ There are example SVG files in [example-svg/](https://github.com/jmtrivial/svg-t
 
 ### Known problems
   - SVG mask are not supported. Unfortunally, Adobe Illustrator may produce SVG with such elements. If you are used to design using masks, please remove them from you files before importing it in SVG-to-STL (for example using *Expand* then *Crop button* from the *Pathfinder* panel). 
-  - This tool is only using the fill color, and not the border color. In case of non-closed shapes, they will be ignored.
+  - First implementation of the strokes (border of the shapes) is not perfect.
   - SVG text elements are not supported. To render text, you need to convert the text to "outlines" or "paths" before saving the SVG file.
-  - Some configurations may produce non closed meshes (exemple-07.svg file). This problem is due to [a bug](https://github.com/w8r/martinez/issues/124) identified in Martinez, that will be corrected in a near future.
+  - Some configurations may produce non closed meshes (exemple-07.svg file). This problem is due to serveral bugs in Martinez, that will be corrected in a near future (I hope).
 
 ### Requirements
 This tool requires javascript support, and a browser that can handle a [WebGL] canvas, and the [File API].
@@ -37,6 +37,7 @@ svg-to-stl makes use of a number of other open source projects:
 * [three.js] - For WebGL rendering of a 3D scene
 * [d3-threeD] - For converting SVG paths into three.js geometries
 * [martinez] - For clipping shapes preserving only visible parts
+* [Clipper.js] - For stroke drawing
 * [rbush] - For efficient intersections and proximity detections
 * [flatten.js] - For applying all heirarchical transforms in an SVG to its paths
 * [ThreeCSG] - For [Constructive Solid Geometry] support
@@ -69,4 +70,5 @@ svg-to-stl makes use of a number of other open source projects:
    [bootstrap-colorpicker]: <https://github.com/itsjavi/bootstrap-colorpicker>
    [bootstrap-dark]: <https://github.com/ForEvolve/bootstrap-dark>
    [rbush]: <https://github.com/mourner/rbush>
+   [Clipper.js]: <https://sourceforge.net/projects/jsclipper/>
    
