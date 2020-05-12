@@ -1,16 +1,16 @@
 # SVG to STL Converter
 
-Created to create tactile maps for visually impaired people from a simple image, this tool runs entirely in the local browser. As the name implies, it takes a [scalable vector graphics] \(SVG\) file as input, and produces an ASCII [stereo-lithography] \(STL\) file as output.
+A tool to create tactile maps for visually impaired people from a simple image. It runs entirely in your browser using javascript. As the name implies, it takes a [scalable vector graphics] \(SVG\) file as input, and produces an ASCII [stereo-lithography] \(STL\) file as output.
 
 This tool is part of the tools created by the [ACTIVmap](https://activmap.limos.fr) project.
 
 ### Demo
-You can try the tool [online](https://jmtrivial.github.io/svg-to-stl/).
+You can try the tool [online](https://activmap.github.io/svg-to-stl/).
 
-There are example SVG files in [example-svg/](https://github.com/jmtrivial/svg-to-stl/tree/master/example-svg/).
+There are example SVG files in [example-svg/](https://github.com/ACTIVmap/svg-to-stl/tree/master/example-svg/).
 
 ### Screenshot
- ![Screenshot](https://raw.githubusercontent.com/jmtrivial/svg-to-stl/master/screenshot.png)
+ ![Screenshot](https://raw.githubusercontent.com/ACTIVmap/svg-to-stl/master/screenshot.png)
 
 ### Options
   - Specifying type height for each color (possibly negative)
