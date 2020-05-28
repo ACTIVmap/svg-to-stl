@@ -1,4 +1,4 @@
-# Pipeline
+# SVG to STL pipeline
 
 Starting from an SVG file that describes a 2D drawing, [SVG-to-STL](README.md) produces a ready to 3D print STL file. 
 
