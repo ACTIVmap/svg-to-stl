@@ -1,6 +1,6 @@
 # Pipeline
 
-Starting from an SVG file that describes a 2D drawing, svg-to-stl produces a ready to 3D print STL file. 
+Starting from an SVG file that describes a 2D drawing, [SVG-to-STL](README.md) produces a ready to 3D print STL file. 
 
 The first steps of the pipeline are done directly using the [DOM description](https://www.w3.org/TR/SVG11/svgdom.html) of the SVG. The data is then translated in an internal format that handle 2D geometry (made of polylines and polygons structured into shapes). To avoid interface freezing, a [worker](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers) has been implemented to compute all the geometrical steps in a separated thread. Messages are sent back to the UI thread to give feedback to the user.
 
