@@ -1,6 +1,6 @@
 # SVG to STL Converter
 
-Created to create tactile maps for visually impaired people from a simple image, this tool runs entirely in the local browser. As the name implies, it takes a [scalable vector graphics] \(SVG\) file as input, and produces an ASCII [stereo-lithography] \(STL\) file as output.
+Created to create tactile maps for visually impaired people from a simple image, this tool runs entirely in the local browser. As the name implies, it takes a [scalable vector graphics] \(SVG\) file as input, and produces an ASCII [3D printing] \(STL\) file as output.
 
 This tool is part of the tools created by the [ACTIVmap](https://activmap.limos.fr) project.
 
@@ -8,6 +8,10 @@ This tool is part of the tools created by the [ACTIVmap](https://activmap.limos.
 You can try the tool [online](https://jmtrivial.github.io/svg-to-stl/).
 
 There are example SVG files in [example-svg/](https://github.com/jmtrivial/svg-to-stl/tree/master/example-svg/).
+
+### Pipeline explanation
+
+The complete pipeline from SVG file to STL file is described in a [separated file](pipeline.md).
 
 ### Screenshot
  ![Screenshot](https://raw.githubusercontent.com/jmtrivial/svg-to-stl/master/screenshot.png)
@@ -29,7 +33,7 @@ There are example SVG files in [example-svg/](https://github.com/jmtrivial/svg-t
 This tool requires javascript support, and a browser that can handle a [WebGL] canvas, and the [File API].
 
 ### Version
-0.6b
+0.8
 
 ### Tools Used
 svg-to-stl makes use of a number of other open source projects:
@@ -51,7 +55,7 @@ svg-to-stl makes use of a number of other open source projects:
 
    [printing press]: <https://en.wikipedia.org/wiki/Printing_press>
    [scalable vector graphics]: <https://en.wikipedia.org/wiki/Scalable_Vector_Graphics>
-   [stereo-lithography]: <https://en.wikipedia.org/wiki/STL_(file_format)>
+   [3D printing]: <https://en.wikipedia.org/wiki/STL_(file_format)>
    [hosted directly from github]: <https://rawgit.com/ryancalme/svg-to-stl/master/SVGtoSTL.html>
    [example-svg/Entypo]: </example-svg/Entypo>
    [WebGL]: <https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API>
