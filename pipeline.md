@@ -42,6 +42,8 @@ The next steps will require adjacent shapes to have points at the same location.
 
 **Remark:** to speed-up computation (union and difference operators, add missing points), [an optimized data structure](https://github.com/mourner/rbush) has been used to consider only shapes that may intersect the one we are processing.
 
+At the end of this processing, a list of the identified colors is return back to the UI thread to update the interface, such that the user will be able to tune the depths associated to each color.
+
 ## 3D reconstruction
 
 The 3D reconstruction is done from a list of 2D shapes (as described before, a shape is a contour and a list of holes) using [three.js](https://threejs.org/).
